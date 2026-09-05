@@ -59,9 +59,13 @@ def main():
     work.mkdir(parents=True)
     deps = json.loads((ROOT / "config/native-dependencies.json").read_text(encoding="utf-8"))
     ndk = args.sdk.resolve() / "ndk" / deps["androidNdk"]
+    cmake_bin = args.sdk.resolve() / "cmake/3.22.1/bin"
+    suffix = ".exe" if os.name == "nt" else ""
+    cmake = cmake_bin / ("cmake" + suffix)
+    ninja = cmake_bin / ("ninja" + suffix)
     toolchain = ndk / "build/cmake/android.toolchain.cmake"
-    if not toolchain.is_file():
-        raise SystemExit("required NDK is missing")
+    if not all(p.is_file() for p in (toolchain, cmake, ninja)):
+        raise SystemExit("required NDK or SDK CMake 3.22.1 is missing")
     server = fetch_server(args.server_tag, work)
     if server["policySha256"] != digest(ROOT / "policy/memorial-policy.v1.json"):
         raise SystemExit("Server/Patch policy mismatch; update both deliberately")
@@ -74,20 +78,22 @@ def main():
     if actual != deps["dobby"]["commit"]:
         raise SystemExit("Dobby commit mismatch")
     common = ["-G", "Ninja", f"-DCMAKE_TOOLCHAIN_FILE={toolchain}",
+              f"-DCMAKE_MAKE_PROGRAM={ninja}",
+              "-DCMAKE_SYSTEM_NAME=Android", "-DCMAKE_SYSTEM_PROCESSOR=aarch64",
               "-DANDROID_ABI=arm64-v8a", "-DANDROID_PLATFORM=android-23",
               "-DCMAKE_BUILD_TYPE=Release"]
     dobby_build = work / "dobby-build"
-    run("cmake", "-S", source, "-B", dobby_build, *common,
+    run(cmake, "-S", source, "-B", dobby_build, *common,
         "-DDOBBY_GENERATE_SHARED=ON", "-DDOBBY_DEBUG=OFF",
         "-DDOBBY_BUILD_EXAMPLE=OFF", "-DDOBBY_BUILD_TEST=OFF")
-    run("cmake", "--build", dobby_build, "--parallel", "2")
+    run(cmake, "--build", dobby_build, "--parallel", "2")
     dobby = dobby_build / "libdobby.so"
     native = work / "native"
-    run("cmake", "-S", ROOT, "-B", native, *common,
+    run(cmake, "-S", ROOT, "-B", native, *common,
         f"-DGGFM_DOBBY_LIBRARY={dobby}", f"-DGGFM_DOBBY_SHA256={digest(dobby)}",
         f"-DGGFM_SERVER_LIBRARY={work / 'libggfm_server.so'}",
         f"-DGGFM_SERVER_SHA256={server['sha256']}")
-    run("cmake", "--build", native, "--target", "ggfm_bootstrap", "--parallel", "2")
+    run(cmake, "--build", native, "--target", "ggfm_bootstrap", "--parallel", "2")
     run(sys.executable, ROOT / "tools/build_bootstrap_dex.py",
         "--sdk", args.sdk.resolve(), "--java-home", args.java_home.resolve(),
         "--output", work / "dex")
@@ -107,4 +113,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
