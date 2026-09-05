@@ -1,0 +1,34 @@
+{
+  "schema": 1,
+  "basePath": "/memorial/v1",
+  "authenticationHeader": "X-GGFM-Session",
+  "writeHeaders": [
+    "X-GGFM-Request-Seq",
+    "X-GGFM-Device-Time",
+    "X-GGFM-UTC-Offset"
+  ],
+  "writeSemantics": {
+    "requestSequence": "strictly-monotonic-per-cold-login-session",
+    "retry": "repeat the same sequence and action to replay the committed response",
+    "commit": "domain write and mutation ledger are one SQLite transaction"
+  },
+  "actions": {
+    "slot.list": {"method":"GET","path":"/slots"},
+    "slot.create": {"method":"POST","path":"/slots"},
+    "slot.requestSwitch": {"method":"POST","path":"/slots/{usn}/select"},
+    "slot.delete": {"method":"DELETE","path":"/slots/{usn}","requiresTypedConfirmation":true},
+    "legacyItem.list": {"method":"GET","path":"/legacy-items"},
+    "legacyItem.sendMail": {"method":"POST","path":"/legacy-items/{kind}/{area}/{id}/mail"},
+    "currency.grant": {"method":"POST","path":"/currency/{kind}/mail"},
+    "starPass.list": {"method":"GET","path":"/star-pass"},
+    "starPass.requestSeason": {"method":"POST","path":"/star-pass/{season}/select"}
+  },
+  "switchPolicy": {
+    "activation": "next-title-login",
+    "requiresRestartNotice": true
+  },
+  "mailPolicy": {
+    "oneItemPerMail": true,
+    "rejectAlreadyOwnedUniqueItems": true
+  }
+}

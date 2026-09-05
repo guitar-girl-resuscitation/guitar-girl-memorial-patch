@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "slotPrefix": "ggfm/usn/{usn}/",
+  "rules": [
+    {
+      "matches": [
+        "Screenmanager Resolution Width",
+        "Screenmanager Resolution Height",
+        "Screenmanager Is Fullscreen mode",
+        "UnityGraphicsQuality",
+        "MasterVolume",
+        "BgmVolume",
+        "SfxVolume",
+        "Language"
+      ],
+      "scope": "install",
+      "evidence": "audited-install-preferences"
+    }
+  ],
+  "defaultScope": "slot"
+}

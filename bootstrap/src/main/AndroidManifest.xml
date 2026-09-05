@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <activity
+            android:name="org.guitargirlresuscitation.memorial.MemorialStartupActivity"
+            android:enabled="true"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:screenOrientation="portrait"
+            android:theme="@android:style/Theme.Material.NoActionBar" />
+        <provider
+            android:name="org.guitargirlresuscitation.memorial.MemorialBootstrapProvider"
+            android:authorities="${applicationId}.ggfm.bootstrap"
+            android:directBootAware="false"
+            android:exported="false"
+            android:initOrder="10000" />
+    </application>
+</manifest>

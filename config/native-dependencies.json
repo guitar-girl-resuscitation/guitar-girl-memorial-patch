@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "androidNdk": "27.3.13750724",
+  "dobby": {
+    "repository": "https://github.com/BepInEx/Dobby.git",
+    "commit": "9d271803881f467aabfc24593c7dcaeb710fe861",
+    "reason": "Includes the Windows Clang ARM64 assembly fix missing from upstream 5dfc854."
+  },
+  "releaseArtifacts": {
+    "dobbySha256": "SUPPLIED_BY_RELEASE_MANIFEST",
+    "serverSha256": "SUPPLIED_BY_SERVER_RELEASE_MANIFEST",
+    "serverAbi": 1
+  }
+}
