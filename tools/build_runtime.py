@@ -36,7 +36,7 @@ def fetch_server(tag, directory):
     if release["target_commitish"] != metadata["sourceCommit"]:
         raise SystemExit("release target differs from compiled source")
     with zipfile.ZipFile(archive) as z:
-        for name in ("libggfm_server.so", "memorial-policy.json"):
+        for name in ("libggfm_server.so", "memorial-policy.json", "THIRD_PARTY_TERMINAL_FONT.md"):
             with (directory / name).open("xb") as stream:
                 stream.write(z.read(name))
     return {

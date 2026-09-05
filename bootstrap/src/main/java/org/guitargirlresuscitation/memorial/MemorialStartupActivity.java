@@ -54,6 +54,9 @@ public final class MemorialStartupActivity extends Activity {
     private Switch fastStartSwitch;
     private boolean fastStart;
     private SaveTransferController saveTransfer;
+    private UpdateController updates;
+    private final View[] launcherPages = new View[3];
+    private final Button[] navigation = new Button[3];
     private Words words;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final SpannableStringBuilder visibleLog = new SpannableStringBuilder();
@@ -76,6 +79,8 @@ public final class MemorialStartupActivity extends Activity {
         setContentView(buildView());
         append("bootstrap: diagnostic gate ready; waiting for Start");
         startButton.setOnClickListener(view -> startBootstrap());
+        if (getSharedPreferences("ggfm_startup_options", MODE_PRIVATE).getBoolean("check_updates", true))
+            updates.check(true);
         // Request document access only after an explicit Import/Export action.
     }
 
@@ -114,6 +119,14 @@ public final class MemorialStartupActivity extends Activity {
         root.addView(title, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
+        LinearLayout pageHost = new LinearLayout(this);
+        pageHost.setOrientation(LinearLayout.VERTICAL);
+        root.addView(pageHost, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
+        LinearLayout home = new LinearLayout(this);
+        home.setOrientation(LinearLayout.VERTICAL);
+        launcherPages[0] = home;
+        pageHost.addView(home, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+
         logScroll = new ScrollView(this);
         logScroll.setFillViewport(true);
         logScroll.setBackgroundColor(Color.rgb(10, 9, 13));
@@ -139,15 +152,12 @@ public final class MemorialStartupActivity extends Activity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         logScroll.addView(logContent, new ScrollView.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        int logHeight = Math.min(
-                Math.round(410 * getResources().getDisplayMetrics().density),
-                Math.round(getResources().getDisplayMetrics().heightPixels * 0.53f));
         LinearLayout.LayoutParams logParams = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, logHeight);
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1);
         logParams.topMargin = smallPad;
-        root.addView(logScroll, logParams);
+        home.addView(logScroll, logParams);
 
-        // Transfer controls share the lower area; remaining space stays reserved.
+        // Save tools are a separate page; controller and storage semantics stay unchanged.
         LinearLayout extensionArea = new LinearLayout(this);
         extensionArea.setOrientation(LinearLayout.VERTICAL);
         extensionArea.setBackgroundColor(Color.rgb(24, 20, 29));
@@ -177,13 +187,22 @@ public final class MemorialStartupActivity extends Activity {
             fastStart = checked;
             getSharedPreferences("ggfm_startup_options", MODE_PRIVATE).edit().putBoolean("fast_start", checked).apply();
         });
-        extensionArea.addView(fastStartSwitch);
+        home.addView(fastStartSwitch);
         ScrollView extensionScroll = new ScrollView(this);
         extensionScroll.addView(extensionArea);
         LinearLayout.LayoutParams extensionParams = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1.0f);
         extensionParams.topMargin = smallPad;
-        root.addView(extensionScroll, extensionParams);
+        launcherPages[1] = extensionScroll;
+        extensionScroll.setVisibility(View.GONE);
+        pageHost.addView(extensionScroll, extensionParams);
+
+        TextView homeUpdate = new TextView(this);
+        homeUpdate.setTextColor(Color.rgb(255, 190, 105));
+        homeUpdate.setTextSize(12);
+        homeUpdate.setVisibility(View.GONE);
+        homeUpdate.setOnClickListener(view -> selectLauncherPage(2));
+        home.addView(homeUpdate);
 
         startButton = new Button(this);
         startButton.setAllCaps(false);
@@ -194,8 +213,52 @@ public final class MemorialStartupActivity extends Activity {
         LinearLayout.LayoutParams buttonParams = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         buttonParams.topMargin = smallPad;
-        root.addView(startButton, buttonParams);
+        home.addView(startButton, buttonParams);
         saveTransfer = new SaveTransferController(this, startButton, exportButton, importButton);
+
+        LinearLayout about = new LinearLayout(this);
+        about.setOrientation(LinearLayout.VERTICAL);
+        ScrollView aboutScroll = new ScrollView(this);
+        aboutScroll.addView(about);
+        launcherPages[2] = aboutScroll;
+        aboutScroll.setVisibility(View.GONE);
+        pageHost.addView(aboutScroll, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        TextView updateStatus = launcherLabel("", smallPad);
+        updates = new UpdateController(this, (message, available) -> {
+            updateStatus.setText(message);
+            homeUpdate.setText(message);
+            homeUpdate.setVisibility(available ? View.VISIBLE : View.GONE);
+        });
+        about.addView(launcherLabel(updates.description(), smallPad));
+        about.addView(updateStatus);
+        about.addView(launcherButton(LauncherText.get(LauncherText.CHECK), view -> updates.check(false)));
+        Button website = launcherButton(LauncherText.get(LauncherText.WEBSITE), view -> updates.openWebsite());
+        website.setEnabled(updates.hasSource());
+        about.addView(website);
+        about.addView(launcherLabel(LauncherText.get(LauncherText.UPDATE_NOTE), smallPad));
+        Switch automatic = new Switch(this);
+        automatic.setText(LauncherText.get(LauncherText.AUTO));
+        automatic.setTextColor(Color.rgb(218, 238, 220));
+        automatic.setChecked(getSharedPreferences("ggfm_startup_options", MODE_PRIVATE).getBoolean("check_updates", true));
+        automatic.setOnCheckedChangeListener((button, checked) ->
+            getSharedPreferences("ggfm_startup_options", MODE_PRIVATE).edit().putBoolean("check_updates", checked).apply());
+        about.addView(automatic);
+        about.addView(launcherLabel(LauncherText.get(LauncherText.REPOSITORIES), smallPad));
+        about.addView(launcherButton("Guitar Girl Resuscitation", view -> UpdateController.openLink(this, "https://github.com/guitar-girl-resuscitation")));
+        for (String repo : new String[]{"server", "patch", "patcher"}) {
+            about.addView(launcherButton("memorial-" + repo, view -> UpdateController.openLink(this,
+                    "https://github.com/guitar-girl-resuscitation/guitar-girl-memorial-" + repo)));
+        }
+        LinearLayout tabs = new LinearLayout(this);
+        tabs.setOrientation(LinearLayout.HORIZONTAL);
+        for (int i = 0; i < 3; i++) {
+            final int page = i;
+            navigation[i] = launcherButton(LauncherText.get(i), view -> selectLauncherPage(page));
+            navigation[i].setTextSize(12);
+            tabs.addView(navigation[i], new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+        }
+        root.addView(tabs);
+        selectLauncherPage(0);
         root.setOnApplyWindowInsetsListener((view, insets) -> {
             int top = insets.getSystemWindowInsetTop();
             int bottom = insets.getSystemWindowInsetBottom();
@@ -208,6 +271,31 @@ public final class MemorialStartupActivity extends Activity {
         });
         root.requestApplyInsets();
         return root;
+    }
+
+    private TextView launcherLabel(String text, int padding) {
+        TextView label = new TextView(this);
+        label.setText(text);
+        label.setTextSize(13);
+        label.setTextColor(Color.rgb(218, 238, 220));
+        label.setPadding(padding, padding, padding, padding);
+        return label;
+    }
+
+    private Button launcherButton(String text, View.OnClickListener click) {
+        Button button = new Button(this);
+        button.setAllCaps(false);
+        button.setText(text);
+        button.setTextSize(13);
+        button.setOnClickListener(click);
+        return button;
+    }
+
+    private void selectLauncherPage(int selected) {
+        for (int i = 0; i < launcherPages.length; i++) {
+            launcherPages[i].setVisibility(i == selected ? View.VISIBLE : View.GONE);
+            navigation[i].setTextColor(i == selected ? Color.rgb(234, 78, 126) : Color.DKGRAY);
+        }
     }
 
     private void startBootstrap() {

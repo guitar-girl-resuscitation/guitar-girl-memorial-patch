@@ -38,9 +38,10 @@ jobs:
       - name: Java presentation and localization tests
         run: |
           mkdir -p build/java-tests
-          javac -J-Xmx256m --release 8 -encoding UTF-8 -d build/java-tests bootstrap/src/main/java/org/guitargirlresuscitation/memorial/{TerminalText,SaveTransferText,CurrencyText}.java bootstrap/tests/*.java
+          javac -J-Xmx256m --release 8 -encoding UTF-8 -d build/java-tests bootstrap/src/main/java/org/guitargirlresuscitation/memorial/{TerminalText,SaveTransferText,CurrencyText,LauncherText,UpdateRules}.java bootstrap/tests/*.java
           java -Xmx128m -cp build/java-tests org.guitargirlresuscitation.memorial.TerminalTextTest
           java -Xmx128m -cp build/java-tests org.guitargirlresuscitation.memorial.CurrencyTextTest
+          java -Xmx128m -cp build/java-tests org.guitargirlresuscitation.memorial.LauncherUpdateTest
       - name: Install fixed Android build tools
         run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0" "ndk;27.3.13750724" "cmake;3.22.1"'
       - name: Build authored runtime against verified Server release
@@ -49,7 +50,7 @@ jobs:
           SERVER_TAG: ${{ inputs.server_tag || 'nightly' }}
         run: python tools/build_runtime.py --sdk "$ANDROID_HOME" --java-home "$JAVA_HOME" --server-tag "$SERVER_TAG"
       - name: Package only original runtime and licensed dependency
-        run: python tools/release_artifacts.py pack --kind patch-android-arm64 --file classes.dex=build/release-runtime/classes.dex --file libggfm_bootstrap.so=build/release-runtime/libggfm_bootstrap.so --file libdobby.so=build/release-runtime/libdobby.so --file memorial-policy.v1.json=policy/memorial-policy.v1.json --file DOBBY-LICENSE=build/release-runtime/DOBBY-LICENSE --file dependencies.json=build/release-runtime/dependencies.json
+        run: python tools/release_artifacts.py pack --kind patch-android-arm64 --file classes.dex=build/release-runtime/classes.dex --file libggfm_bootstrap.so=build/release-runtime/libggfm_bootstrap.so --file libdobby.so=build/release-runtime/libdobby.so --file libggfm_server.so=build/release-runtime/libggfm_server.so --file THIRD_PARTY_TERMINAL_FONT.md=build/release-runtime/THIRD_PARTY_TERMINAL_FONT.md --file memorial-policy.v1.json=policy/memorial-policy.v1.json --file DOBBY-LICENSE=build/release-runtime/DOBBY-LICENSE --file dependencies.json=build/release-runtime/dependencies.json
       - uses: actions/upload-artifact@v4
         with:
           name: patch-release
