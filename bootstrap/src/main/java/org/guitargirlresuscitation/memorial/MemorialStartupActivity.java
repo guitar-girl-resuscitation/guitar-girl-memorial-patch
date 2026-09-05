@@ -294,7 +294,8 @@ public final class MemorialStartupActivity extends Activity {
     private void selectLauncherPage(int selected) {
         for (int i = 0; i < launcherPages.length; i++) {
             launcherPages[i].setVisibility(i == selected ? View.VISIBLE : View.GONE);
-            navigation[i].setTextColor(i == selected ? Color.rgb(234, 78, 126) : Color.DKGRAY);
+            navigation[i].setTextColor(i == selected ? Color.rgb(255, 103, 157) : Color.rgb(228, 232, 238));
+            navigation[i].setBackgroundColor(Color.rgb(40, 34, 45));
         }
     }
 
