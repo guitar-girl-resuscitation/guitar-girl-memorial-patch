@@ -15,6 +15,9 @@ public final class LauncherUpdateTest {
         check(UpdateRules.compatibleAbi(new String[]{"arm64-v8a", "armeabi-v7a"}, "armeabi-v7a"));
         check(!UpdateRules.compatibleAbi(new String[]{"arm64-v8a"}, "armeabi-v7a"));
         check(!UpdateRules.compatibleAbi(new String[]{"x86"}, "x86"));
+        check(UpdateRules.compatibleAbis(new String[]{"armeabi-v7a"}, new String[]{"arm64-v8a", "armeabi-v7a"}));
+        check(UpdateRules.compatibleAbis(new String[]{"arm64-v8a"}, new String[]{"arm64-v8a", "armeabi-v7a"}));
+        check(!UpdateRules.compatibleAbis(new String[]{"x86"}, new String[]{"arm64-v8a", "armeabi-v7a"}));
         for (String locale : new String[]{"en","zh-CN","zh-TW","ja","ko","vi","es","it","id","th","pt","hi","fr"}) {
             Locale.setDefault(Locale.forLanguageTag(locale));
             for (int key = 0; key <= LauncherText.REPOSITORIES; key++) check(!LauncherText.get(key).trim().isEmpty());

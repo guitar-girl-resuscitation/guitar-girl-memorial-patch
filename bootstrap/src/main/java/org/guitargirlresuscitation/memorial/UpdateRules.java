@@ -17,5 +17,10 @@ final class UpdateRules {
         for (String abi : supported) if (offered.equals(abi)) return true;
         return false;
     }
+    static boolean compatibleAbis(String[] supported, String[] offered) {
+        if (offered == null) return false;
+        for (String abi : offered) if (compatibleAbi(supported, abi)) return true;
+        return false;
+    }
     private UpdateRules() {}
 }

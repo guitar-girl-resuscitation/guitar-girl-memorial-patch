@@ -24,6 +24,10 @@ original game libraries. A deployment chooses its ABI via its compatibility
 manifest. Automatic updates retain that ABI and require matching Server/Patch
 libraries. An ARM64-only source cannot produce a working ARMv7 game.
 
-The current Web deployment serves one source profile, not a universal dual-ABI
-XAPK. Keep the deployment application ID and signing certificate unchanged
-when updating; never install integration-test signing over a published build.
+The Patcher can also combine the approved ARM64 source with the separately
+verified original ARMv7 native split. Both runtime archives must have identical
+Patch/Server commits, policy and bootstrap DEX. The resulting XAPK shares its
+base/assets and includes both ABI splits; without that private supplemental
+input the output remains single-ABI. The original split is never published here.
+Keep the deployment application ID and signing certificate unchanged when
+updating; never install integration-test signing over a published build.

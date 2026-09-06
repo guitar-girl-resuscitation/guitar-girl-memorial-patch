@@ -114,10 +114,15 @@ final class UpdateController {
                 if (status != 200) throw new java.io.IOException("HTTP " + status);
                 JSONObject latest;
                 try (InputStream stream = connection.getInputStream()) { latest = readJson(stream); }
+                org.json.JSONArray offered = latest.optJSONArray("androidAbis");
+                String[] offeredAbis = offered == null
+                        ? new String[]{latest.optString("androidAbi", "arm64-v8a")}
+                        : new String[offered.length()];
+                if (offered != null) for (int i = 0; i < offered.length(); i++)
+                    offeredAbis[i] = offered.optString(i, "");
                 if (latest.getInt("schema") != 1 || !UpdateRules.compatible(activity.getPackageName(), signer,
                         latest.getString("applicationId"), latest.getString("signerSha256"))
-                        || !UpdateRules.compatibleAbi(android.os.Build.SUPPORTED_ABIS,
-                                latest.optString("androidAbi", "arm64-v8a"))) {
+                        || !UpdateRules.compatibleAbis(android.os.Build.SUPPORTED_ABIS, offeredAbis)) {
                     prefs.edit().remove("update_latest_code").apply();
                     message = LauncherText.get(LauncherText.MISMATCH);
                     diagnostic.accept("[WARN] update.check: incompatible package/signing identity; rejected");
