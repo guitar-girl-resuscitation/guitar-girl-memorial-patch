@@ -55,6 +55,15 @@ bool InstallHooks(HookBackend& backend, const std::uintptr_t il2cpp_base,
     }
     std::uint8_t after[16]{};
     std::memcpy(after, address, sizeof(after));
+    // ARM64 near routing changes exactly one instruction. A fallback absolute
+    // jump can overwrite adjacent 4/8-byte IL2CPP methods; never enter Unity
+    // with that corruption even if Dobby reports installation success.
+    if (std::memcmp(before + 4, after + 4, sizeof(before) - 4) != 0) {
+      __android_log_print(ANDROID_LOG_ERROR, "GGFM",
+                          "runtime: unsafe hook span for %.*s; adjacent instructions changed",
+                          static_cast<int>(target.name.size()), target.name.data());
+      return false;
+    }
     if (std::memcmp(before, after, sizeof(before)) == 0) {
       __android_log_print(ANDROID_LOG_ERROR, "GGFM",
                           "runtime: Hook did not alter %.*s at 0x%" PRIxPTR,

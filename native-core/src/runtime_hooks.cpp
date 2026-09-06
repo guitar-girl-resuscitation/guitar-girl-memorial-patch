@@ -13,6 +13,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstdint>
+#include <cstring>
 #include <string>
 #include <string_view>
 
@@ -81,6 +82,37 @@ MaintenanceHandler original_maintenance_handler_shared = nullptr;
 MaintenancePopup original_maintenance_popup = nullptr;
 ManagedTransition original_go_to_ingame = nullptr;
 ManagedTransition original_go_to_event_intro = nullptr;
+ManagedTransition original_offline_calculate = nullptr;
+ManagedTransition original_offline_elapsed = nullptr;
+ManagedTransition original_offline_reward = nullptr;
+
+void LogOfflineState(const char* phase, void* instance) {
+  if (instance == nullptr) return;
+  // Audited v8 HibernationManagerSGT fields; diagnostics do not change timing.
+  std::int32_t minimum = 0, maximum = 0;
+  std::int64_t start = 0, elapsed = 0;
+  const auto* bytes = static_cast<const char*>(instance);
+  std::memcpy(&minimum, bytes + 0x20, sizeof(minimum));
+  std::memcpy(&maximum, bytes + 0x24, sizeof(maximum));
+  std::memcpy(&start, bytes + 0x30, sizeof(start));
+  std::memcpy(&elapsed, bytes + 0x38, sizeof(elapsed));
+  __android_log_print(ANDROID_LOG_INFO, "GGFM",
+      "offline: %s min_seconds=%d max_seconds=%d start_ticks=%lld elapsed_ticks=%lld",
+      phase, minimum, maximum, static_cast<long long>(start), static_cast<long long>(elapsed));
+}
+
+void OfflineCalculate(void* instance, const void* method) {
+  LogOfflineState("calculate", instance);
+  original_offline_calculate(instance, method);
+}
+void OfflineElapsed(void* instance, const void* method) {
+  original_offline_elapsed(instance, method);
+  LogOfflineState("elapsed", instance);
+}
+void OfflineReward(void* instance, const void* method) {
+  LogOfflineState("reward", instance);
+  original_offline_reward(instance, method);
+}
 std::atomic<std::uint32_t> game_url_call_count{0};
 std::atomic<std::uint32_t> cdn_url_call_count{0};
 std::atomic<std::uint32_t> request_send_call_count{0};
@@ -221,14 +253,28 @@ float GetFloatHook(Il2CppString* key, float fallback, const void* method) {
 }
 void SetStringHook(Il2CppString* key, Il2CppString* value, const void* method) {
   original_set_string(Namespaced(key), value, method);
+  const auto name = Utf8ForLog(key);
+  if (name == "Key_HibernationStartTimeTicks" || name == "Key_HibernationTotalTimeTicks") {
+    static std::atomic<unsigned> logged{0};
+    if (logged.fetch_add(1) < 32)
+      __android_log_print(ANDROID_LOG_INFO, "GGFM", "offline: prefs write %s=%s readback=%s", name.c_str(), Utf8ForLog(value).c_str(),
+                          Utf8ForLog(original_get_string(Namespaced(key), Managed("<missing>"), nullptr)).c_str());
+  }
 }
 Il2CppString* GetStringHook(Il2CppString* key, Il2CppString* fallback, const void* method) {
-  return original_get_string(Namespaced(key), fallback, method);
+  auto* result = original_get_string(Namespaced(key), fallback, method);
+  const auto name = Utf8ForLog(key);
+  if (name == "Key_HibernationStartTimeTicks" || name == "Key_HibernationTotalTimeTicks")
+    __android_log_print(ANDROID_LOG_INFO, "GGFM", "offline: prefs read %s=%s", name.c_str(), Utf8ForLog(result).c_str());
+  return result;
 }
 bool HasKeyHook(Il2CppString* key, const void* method) {
   return original_has_key(Namespaced(key), method);
 }
 void DeleteKeyHook(Il2CppString* key, const void* method) {
+  const auto name = Utf8ForLog(key);
+  if (name == "Key_HibernationStartTimeTicks" || name == "Key_HibernationTotalTimeTicks")
+    __android_log_print(ANDROID_LOG_INFO, "GGFM", "offline: prefs delete %s", name.c_str());
   original_delete_key(Namespaced(key), method);
 }
 void DeleteAllHook(const void*) {
@@ -477,6 +523,12 @@ void GoToEventIntroWithMemorialNotice(void* instance, const void* method) {
 }
 
 HookBinding Resolve(const std::string_view name) {
+  if (name == "offline.calculate")
+    return {reinterpret_cast<void*>(OfflineCalculate), reinterpret_cast<void**>(&original_offline_calculate)};
+  if (name == "offline.elapsed")
+    return {reinterpret_cast<void*>(OfflineElapsed), reinterpret_cast<void**>(&original_offline_elapsed)};
+  if (name == "offline.reward")
+    return {reinterpret_cast<void*>(OfflineReward), reinterpret_cast<void**>(&original_offline_reward)};
   if (name.starts_with("gameplay.")) return ResolveGameplayCompatibilityHook(name);
   if (name.starts_with("server.") && name != "server.cdn")
     return {reinterpret_cast<void*>(ReturnGameUrl),

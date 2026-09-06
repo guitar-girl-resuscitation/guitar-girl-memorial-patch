@@ -15,6 +15,16 @@ SPEC.loader.exec_module(MODULE)
 
 
 class HookGeneratorTests(unittest.TestCase):
+    def test_settings_disable_uses_body_not_adjacent_language_stub(self):
+        manifest = json.loads((ROOT / "compatibility/8.0.0.json").read_text(encoding="utf-8"))
+        entry = next(row for row in manifest["il2cppHooks"] if row["name"] == "ui.setting.disable")
+        self.assertEqual(entry["rva"], "0x1E1C368")
+        self.assertNotEqual(entry["rva"], "0x1E1CB60")
+        loader = (ROOT / "native-core/src/standalone_loader.cpp").read_text(encoding="utf-8")
+        self.assertIn("dobby_enable_near_branch_trampoline();", loader)
+        core = (ROOT / "native-core/src/core.cpp").read_text(encoding="utf-8")
+        self.assertIn("std::memcmp(before + 4, after + 4", core)
+
     def test_pass_selection_is_a_scrollable_list_with_generation_checked_events(self):
         source = (ROOT / "native-core/src/memorial_ui.cpp").read_text(encoding="utf-8")
         page = source.split("void ShowPassList()", 1)[1].split("void ShowSaveList", 1)[0]

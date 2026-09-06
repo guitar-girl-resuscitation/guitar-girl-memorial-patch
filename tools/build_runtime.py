@@ -77,6 +77,7 @@ def main():
     actual = subprocess.check_output(["git", "-C", str(source), "rev-parse", "HEAD"], text=True).strip()
     if actual != deps["dobby"]["commit"]:
         raise SystemExit("Dobby commit mismatch")
+    run(sys.executable, ROOT / "tools/harden_dobby.py", source, "--apply")
     common = ["-G", "Ninja", f"-DCMAKE_TOOLCHAIN_FILE={toolchain}",
               f"-DCMAKE_MAKE_PROGRAM={ninja}",
               "-DCMAKE_SYSTEM_NAME=Android", "-DCMAKE_SYSTEM_PROCESSOR=aarch64",
@@ -86,14 +87,14 @@ def main():
     run(cmake, "-S", source, "-B", dobby_build, *common,
         "-DDOBBY_GENERATE_SHARED=ON", "-DDOBBY_DEBUG=OFF",
         "-DDOBBY_BUILD_EXAMPLE=OFF", "-DDOBBY_BUILD_TEST=OFF")
-    run(cmake, "--build", dobby_build, "--parallel", "2")
+    run(cmake, "--build", dobby_build, "--parallel", "1")
     dobby = dobby_build / "libdobby.so"
     native = work / "native"
     run(cmake, "-S", ROOT, "-B", native, *common,
         f"-DGGFM_DOBBY_LIBRARY={dobby}", f"-DGGFM_DOBBY_SHA256={digest(dobby)}",
         f"-DGGFM_SERVER_LIBRARY={work / 'libggfm_server.so'}",
         f"-DGGFM_SERVER_SHA256={server['sha256']}")
-    run(cmake, "--build", native, "--target", "ggfm_bootstrap", "--parallel", "2")
+    run(cmake, "--build", native, "--target", "ggfm_bootstrap", "--parallel", "1")
     run(sys.executable, ROOT / "tools/build_bootstrap_dex.py",
         "--sdk", args.sdk.resolve(), "--java-home", args.java_home.resolve(),
         "--output", work / "dex")

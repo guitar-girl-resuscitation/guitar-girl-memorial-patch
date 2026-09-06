@@ -38,7 +38,7 @@ jobs:
       - name: Java presentation and localization tests
         run: |
           mkdir -p build/java-tests
-          javac -J-Xmx256m --release 8 -encoding UTF-8 -d build/java-tests bootstrap/src/main/java/org/guitargirlresuscitation/memorial/{TerminalText,SaveTransferText,CurrencyText,LauncherText,UpdateRules}.java bootstrap/tests/*.java
+          javac -J-Xmx256m --release 8 -encoding UTF-8 -d build/java-tests bootstrap/src/main/java/org/guitargirlresuscitation/memorial/{TerminalText,SaveTransferText,CurrencyText,LauncherText,UpdateRules,DiagnosticText}.java bootstrap/tests/*.java
           java -Xmx128m -cp build/java-tests org.guitargirlresuscitation.memorial.TerminalTextTest
           java -Xmx128m -cp build/java-tests org.guitargirlresuscitation.memorial.CurrencyTextTest
           java -Xmx128m -cp build/java-tests org.guitargirlresuscitation.memorial.LauncherUpdateTest

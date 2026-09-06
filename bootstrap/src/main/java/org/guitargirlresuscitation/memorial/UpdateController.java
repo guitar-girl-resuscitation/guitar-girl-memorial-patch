@@ -20,15 +20,19 @@ final class UpdateController {
     interface Listener { void result(String message, boolean available); }
     private final Activity activity;
     private final Listener listener;
+    private final java.util.function.Consumer<String> diagnostic;
+    private boolean promptShown;
+    private boolean promptVisible;
     private final AtomicBoolean busy = new AtomicBoolean();
     private String origin;
     private String signer;
     private long installedCode;
     private String installedName = "";
 
-    UpdateController(Activity activity, Listener listener) {
+    UpdateController(Activity activity, Listener listener, java.util.function.Consumer<String> diagnostic) {
         this.activity = activity;
         this.listener = listener;
+        this.diagnostic = diagnostic;
         try {
             PackageInfo info = activity.getPackageManager().getPackageInfo(activity.getPackageName(), PackageManager.GET_SIGNING_CERTIFICATES);
             installedCode = info.getLongVersionCode();
@@ -51,14 +55,31 @@ final class UpdateController {
             if (!"https".equals(url.getProtocol()) || url.getHost().isEmpty() || url.getUserInfo() != null
                     || !url.getPath().isEmpty() || url.getQuery() != null || url.getRef() != null) return;
             origin = candidate;
-        } catch (Exception ignored) {
+        } catch (Exception failure) {
             // CLI/older packages legitimately have no update source. Never guess one.
+            diagnostic.accept("[WARN] update.source: " + failure.getClass().getSimpleName()
+                    + ": " + failure.getMessage());
         }
     }
 
     String description() { return installedName + " (" + installedCode + ")\n" +
             (origin == null ? LauncherText.get(LauncherText.NO_SOURCE) : origin); }
     boolean hasSource() { return origin != null; }
+    boolean isPromptShowing() { return promptVisible; }
+    private void deliver(String message, boolean available) {
+        if (activity.isFinishing() || activity.isDestroyed()) return;
+        listener.result(message, available);
+        if (!available || promptShown) return;
+        promptShown = true;
+        promptVisible = true;
+        android.app.AlertDialog dialog = new android.app.AlertDialog.Builder(activity)
+                .setTitle(LauncherText.get(LauncherText.AVAILABLE))
+                .setMessage(message + "\n\n" + LauncherText.get(LauncherText.UPDATE_NOTE))
+                .setPositiveButton(LauncherText.get(LauncherText.WEBSITE), (d, w) -> openWebsite())
+                .setNegativeButton(DiagnosticText.get(6), null).create();
+        dialog.setOnDismissListener(d -> promptVisible = false);
+        dialog.show();
+    }
     void openWebsite() {
         if (origin == null) return;
         openLink(activity, origin);
@@ -71,14 +92,11 @@ final class UpdateController {
         if (origin == null) { listener.result(LauncherText.get(LauncherText.NO_SOURCE), false); return; }
         android.content.SharedPreferences prefs = activity.getSharedPreferences("ggfm_startup_options", Activity.MODE_PRIVATE);
         long now = System.currentTimeMillis();
-        long elapsed = now - prefs.getLong("update_checked_at", 0);
-        if (automatic && elapsed >= 0 && elapsed < 24 * 60 * 60 * 1000L) {
-            long latest = prefs.getLong("update_latest_code", 0);
-            if (latest > installedCode) listener.result(LauncherText.get(LauncherText.AVAILABLE) + " (" + latest + ")", true);
-            return;
-        }
+        // Every cold launcher check uses fresh metadata, not a day-old cached
+        // availability hint which may refer to a rolled-back deployment.
         if (!busy.compareAndSet(false, true)) return;
         listener.result(LauncherText.get(LauncherText.CHECKING), false);
+        diagnostic.accept("[INFO] update.check: contacting configured HTTPS deployment; installed=" + installedCode);
         // This thread never participates in the server readiness gate.
         new Thread(() -> {
             HttpsURLConnection connection = null;
@@ -92,22 +110,27 @@ final class UpdateController {
                 connection.setUseCaches(false);
                 connection.setRequestProperty("Accept", "application/json");
                 connection.setRequestProperty("User-Agent", "GGFM-Update/1");
-                if (connection.getResponseCode() != 200) throw new java.io.IOException("update unavailable");
+                int status = connection.getResponseCode();
+                if (status != 200) throw new java.io.IOException("HTTP " + status);
                 JSONObject latest;
                 try (InputStream stream = connection.getInputStream()) { latest = readJson(stream); }
                 if (latest.getInt("schema") != 1 || !UpdateRules.compatible(activity.getPackageName(), signer,
                         latest.getString("applicationId"), latest.getString("signerSha256"))) {
                     prefs.edit().remove("update_latest_code").apply();
                     message = LauncherText.get(LauncherText.MISMATCH);
+                    diagnostic.accept("[WARN] update.check: incompatible package/signing identity; rejected");
                 } else {
                     long code = latest.getLong("versionCode");
                     if (code <= 0 || code > 2100000000L) throw new java.io.IOException("invalid version");
                     prefs.edit().putLong("update_latest_code", code).apply();
                     available = UpdateRules.newer(installedCode, code);
                     message = LauncherText.get(available ? LauncherText.AVAILABLE : LauncherText.CURRENT) + " (" + code + ")";
+                    diagnostic.accept("[INFO] update.check: compatible remote=" + code + " newer=" + available);
                 }
-            } catch (Exception ignored) {
+            } catch (Exception failure) {
                 // Offline, TLS, rate limits, or a removed site must never prevent play.
+                diagnostic.accept("[INFO] update.check: " + failure.getClass().getSimpleName()
+                        + ": " + failure.getMessage() + "; offline play remains available");
             } finally {
                 if (connection != null) connection.disconnect();
                 prefs.edit().putLong("update_checked_at", now).apply();
@@ -116,7 +139,7 @@ final class UpdateController {
             final String result = message;
             final boolean update = available;
             activity.runOnUiThread(() -> {
-                if (!activity.isFinishing() && !activity.isDestroyed()) listener.result(result, update);
+                deliver(result, update);
             });
         }, "ggfm-update-check").start();
     }

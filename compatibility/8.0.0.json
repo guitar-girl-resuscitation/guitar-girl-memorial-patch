@@ -24,6 +24,9 @@
     "label": "Guitar Girl Fan Memorial Build"
   },
   "il2cppHooks": [
+    {"name":"offline.calculate","rva":"0x2100C9C","prologue":"FE0F1DF8F65701A9F44F02A9350D01F0"},
+    {"name":"offline.elapsed","rva":"0x2101244","prologue":"FF4301D1FE5F02A9F65703A9F44F04A9"},
+    {"name":"offline.reward","rva":"0x2101518","prologue":"E80F19FCFD7B01A9FC6F02A9FA6703A9"},
     {"name":"gameplay.save.characterUpgrade","rva":"0x1CB3890","prologue":"FF4301D1FE0B00F9F85F02A9F65703A9"},
     {"name":"gameplay.save.followerUpgrade","rva":"0x1CACA4C","prologue":"FF8301D1FE6F01A9FA6702A9F85F03A9"},
     {"name":"gameplay.music.auditBinding","rva":"0x20E4B50","prologue":"FF0301D1FE5702A9F44F03A9140E01F0"},
@@ -70,7 +73,7 @@
     {"name":"ui.setting.show","rva":"0x1E1C574","prologue":"FE5FBDA9F65701A9F44F02A9542401D0"},
     {"name":"ui.setting.refresh","rva":"0x1E1B0B8","prologue":"FE4FBFA9F30300AA2A000094E00313AA"},
     {"name":"ui.setting.enable","rva":"0x1E1D1BC","prologue":"FE4FBFA9F30300AA1EEAFF97E00313AA"},
-    {"name":"ui.setting.disable","rva":"0x1E1CB60","prologue":"02FEFF17210080529FEEFF17C1038052"},
+    {"name":"ui.setting.disable","rva":"0x1E1C368","prologue":"FE0F1CF8F85F01A9F65702A9F44F03A9"},
     {"name":"ui.mailbox.start","rva":"0x21F551C","prologue":"FE4FBFA9F30300AA06000094E10300AA"},
     {"name":"ui.setting.authVisibility","rva":"0x1E1B6CC","prologue":"FE0F1DF8F65701A9F44F02A9542401F0"},
     {"name":"ui.setting.login","rva":"0x1E1D244","prologue":"FE5FBDA9F65701A9F44F02A9552401B0"},

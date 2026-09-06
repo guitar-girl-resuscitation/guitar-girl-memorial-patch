@@ -15,6 +15,7 @@
 #include <cstring>
 
 extern "C" int DobbyHook(void* address, void* replacement, void** original);
+extern "C" void dobby_enable_near_branch_trampoline();
 extern "C" int DobbyDestroy(void* address);
 
 namespace {
@@ -37,6 +38,11 @@ void Log(const int priority, const char* message) {
 class Backend final : public ggfm::HookBackend {
  public:
   bool Install(void* target, void* replacement, void** original) override {
+    static const bool near_routing = [] {
+      dobby_enable_near_branch_trampoline();
+      return true;
+    }();
+    (void)near_routing;
     // Dobby's Android ARM64 implementation unconditionally writes the
     // generated trampoline through the third argument. Some GGFM replacements
     // intentionally never call the original, but the output slot must still

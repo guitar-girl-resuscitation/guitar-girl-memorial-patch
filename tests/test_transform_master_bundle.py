@@ -32,6 +32,30 @@ def database(statements: list[str]) -> bytes:
 
 
 class MasterTransformTests(unittest.TestCase):
+    def test_pass_fill_displays_effective_points_without_changing_price_or_goals(self):
+        raw = database([
+            "CREATE TABLE SubscribePass(i_PaidPoint INTEGER,i_ADPoint INTEGER,i_PointPrice INTEGER,goal INTEGER)",
+            "INSERT INTO SubscribePass VALUES(5000,2000,50,10000)",
+            "INSERT INTO SubscribePass VALUES(0,0,0,20000)",
+        ])
+        changed, report = MODULE.transform_database("SubscribePass", raw, POLICY)
+        connection = sqlite3.connect(":memory:")
+        connection.deserialize(changed)
+        self.assertEqual(connection.execute("SELECT * FROM SubscribePass").fetchall(),
+                         [(50000,20000,50,10000),(0,0,0,20000)])
+        self.assertEqual(report["SubscribePass.effectivePointDisplay"], 2)
+        connection.deserialize(raw)
+        self.assertEqual(connection.execute("SELECT i_PaidPoint FROM SubscribePass LIMIT 1").fetchone()[0], 5000)
+        connection.close()
+
+    def test_pass_fill_display_rejects_overflow(self):
+        raw = database([
+            "CREATE TABLE SubscribePass(i_PaidPoint INTEGER,i_ADPoint INTEGER)",
+            "INSERT INTO SubscribePass VALUES(2147483647,1)",
+        ])
+        with self.assertRaisesRegex(RuntimeError, "Int32"):
+            MODULE.transform_database("SubscribePass", raw, POLICY)
+
     def test_all_affection_thresholds_including_lily_remain_original(self):
         raw = database([
             'CREATE TABLE FollowerProfileLevel(i_Id INT,i_ProfileID INT,i_Level INT,d_RequireEXP REAL)',

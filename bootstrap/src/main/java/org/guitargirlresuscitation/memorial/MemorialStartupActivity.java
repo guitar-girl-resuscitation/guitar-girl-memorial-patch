@@ -62,9 +62,17 @@ public final class MemorialStartupActivity extends Activity {
     private final SpannableStringBuilder visibleLog = new SpannableStringBuilder();
     private volatile boolean logPumpRunning;
     private long logEpochMillis;
+    private String previousReport = "";
+    private String pendingReport = "";
+    private volatile String startupStage = "launcher";
+    private boolean nativeLogsAvailable;
+    private boolean diagnosticDrainFailed;
+    private long lastHeartbeat;
+    private static final int EXPORT_DIAGNOSTICS = 9042;
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
+        DiagnosticJournal.install(this);
         // The launcher Activity is deliberately the diagnostic gate. If the
         // same process already released Unity, tapping the app icon must bring
         // the existing game Activity forward instead of recreating the gate
@@ -76,8 +84,33 @@ public final class MemorialStartupActivity extends Activity {
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         configureWindow();
         words = Words.forLocale(Locale.getDefault());
+        previousReport = getSharedPreferences("ggfm_diagnostics", MODE_PRIVATE).getString("last_report", "");
+        String lastCrash = getSharedPreferences("ggfm_diagnostics", MODE_PRIVATE).getString("fatal_java", "");
+        if (!lastCrash.isEmpty()) {
+            previousReport += "\n" + lastCrash;
+            getSharedPreferences("ggfm_diagnostics", MODE_PRIVATE).edit().remove("fatal_java").apply();
+        }
         setContentView(buildView());
         append("bootstrap: diagnostic gate ready; waiting for Start");
+        if (!lastCrash.isEmpty()) appendTerminal("[WARN] Previous Java crash recorded; use the previous diagnostics export on the Saves page.");
+        append("device: sdk=" + Build.VERSION.SDK_INT + " model=" + Build.MANUFACTURER + "/" + Build.MODEL
+                + " abis=" + java.util.Arrays.toString(Build.SUPPORTED_ABIS));
+        try {
+            android.content.pm.PackageInfo info = getPackageManager().getPackageInfo(getPackageName(), 0);
+            append("package: " + getPackageName() + " version=" + info.versionName + " code=" + info.getLongVersionCode());
+        } catch (Exception failure) { appendTerminal("[WARN] package.info: " + startupFailureDetails(failure)); }
+        if (Build.VERSION.SDK_INT >= 30) {
+            try {
+                android.app.ActivityManager manager = (android.app.ActivityManager) getSystemService(ACTIVITY_SERVICE);
+                java.util.List<android.app.ApplicationExitInfo> exits = manager.getHistoricalProcessExitReasons(getPackageName(), 0, 1);
+                if (!exits.isEmpty()) {
+                    android.app.ApplicationExitInfo exit = exits.get(0);
+                    append("previous-process: androidReason=" + exit.getReason() + " status=" + exit.getStatus()
+                            + " timestamp=" + exit.getTimestamp() + " pssKB=" + exit.getPss()
+                            + " description=" + exit.getDescription());
+                }
+            } catch (Exception failure) { appendTerminal("[WARN] previous-process: " + startupFailureDetails(failure)); }
+        }
         startButton.setOnClickListener(view -> startBootstrap());
         if (getSharedPreferences("ggfm_startup_options", MODE_PRIVATE).getBoolean("check_updates", true))
             updates.check(true);
@@ -85,6 +118,23 @@ public final class MemorialStartupActivity extends Activity {
     }
 
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == EXPORT_DIAGNOSTICS) {
+            if (resultCode == RESULT_OK && data != null && data.getData() != null) {
+                final android.net.Uri destination = data.getData();
+                final String report = pendingReport;
+                new Thread(() -> {
+                    try (java.io.OutputStream stream = getContentResolver().openOutputStream(destination, "wt")) {
+                        if (stream == null) throw new java.io.IOException("document provider returned no stream");
+                        stream.write(report.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                        runOnUiThread(() -> android.widget.Toast.makeText(this, DiagnosticText.get(3), android.widget.Toast.LENGTH_LONG).show());
+                    } catch (Exception failure) {
+                        appendTerminal("[ERROR] diagnostics.export: " + startupFailureDetails(failure));
+                    }
+                }, "ggfm-diagnostic-export").start();
+            }
+            pendingReport = "";
+            return;
+        }
         if (saveTransfer != null && saveTransfer.onResult(requestCode, resultCode, data)) return;
         super.onActivityResult(requestCode, resultCode, data);
     }
@@ -133,6 +183,7 @@ public final class MemorialStartupActivity extends Activity {
         logView = new TextView(this);
         logView.setTextColor(Color.rgb(218, 238, 220));
         logView.setTextSize(10);
+        logView.setTextIsSelectable(true);
         logView.setTypeface(terminalTypeface());
         logView.setLetterSpacing(0.0f);
         logView.setTextScaleX(1.0f);
@@ -176,6 +227,9 @@ public final class MemorialStartupActivity extends Activity {
         savePath.setTextSize(11);
         savePath.setPadding(smallPad, smallPad, smallPad, smallPad);
         extensionArea.addView(savePath);
+        extensionArea.addView(launcherButton(DiagnosticText.get(0), view -> exportDiagnostics(false)));
+        extensionArea.addView(launcherButton(DiagnosticText.get(1), view -> exportDiagnostics(true)));
+        extensionArea.addView(launcherButton(DiagnosticText.get(4), view -> copyDiagnostics()));
         fastStart = getSharedPreferences("ggfm_startup_options", MODE_PRIVATE).getBoolean("fast_start", false);
         fastStartSwitch = new Switch(this);
         fastStartSwitch.setText(TerminalText.fastStartLabel(Locale.getDefault()));
@@ -228,7 +282,7 @@ public final class MemorialStartupActivity extends Activity {
             updateStatus.setText(message);
             homeUpdate.setText(message);
             homeUpdate.setVisibility(available ? View.VISIBLE : View.GONE);
-        });
+        }, this::appendTerminal);
         about.addView(launcherLabel(updates.description(), smallPad));
         about.addView(updateStatus);
         about.addView(launcherButton(LauncherText.get(LauncherText.CHECK), view -> updates.check(false)));
@@ -310,16 +364,44 @@ public final class MemorialStartupActivity extends Activity {
         fastStartSwitch.setEnabled(false);
         startButton.setText(words.startingServer);
         try {
+            startupStage = "native.banner.load";
             appendBanner();
+            nativeLogsAvailable = true;
+            append("native.banner: library and entry point ready");
             mainHandler.postDelayed(() -> {
                 logPumpRunning = true;
+                lastHeartbeat = android.os.SystemClock.elapsedRealtime();
                 mainHandler.post(logPump);
                 new Thread(this::bootstrap, "ggfm-visible-bootstrap").start();
             }, cosmeticDelay(900L));
         } catch (Throwable failure) {
             Log.e(TAG, "bootstrap: native banner initialization failed", failure);
-            appendError("bootstrap: " + failure.getClass().getSimpleName());
+            // This can fail before the Rust logger exists. Keep the linker
+            // message (missing library/symbol/ABI) visible in user screenshots.
+            appendTerminal("[INFO] android: sdk=" + Build.VERSION.SDK_INT
+                    + " abis=" + java.util.Arrays.toString(Build.SUPPORTED_ABIS));
+            appendTerminal("[INFO] package: " + getPackageName()
+                    + " nativeLibraryDir=" + getApplicationInfo().nativeLibraryDir
+                    + " splits=" + java.util.Arrays.toString(getApplicationInfo().splitSourceDirs));
+            appendError("bootstrap: " + startupFailureDetails(failure));
         }
+    }
+
+    static String startupFailureDetails(Throwable failure) {
+        StringBuilder details = new StringBuilder();
+        // Bound the cause chain, including malformed/cyclic third-party errors.
+        for (int depth = 0; failure != null && depth < 4; depth++) {
+            if (depth != 0) details.append("\ncaused by: ");
+            details.append(failure.getClass().getSimpleName()).append(": ")
+                    .append(String.valueOf(failure.getMessage()));
+            StackTraceElement[] trace = failure.getStackTrace();
+            for (int frame = 0; frame < Math.min(trace.length, 8); frame++)
+                details.append("\n  at ").append(trace[frame]);
+            Throwable cause = failure.getCause();
+            if (cause == failure) break;
+            failure = cause;
+        }
+        return details.toString();
     }
 
     private void bootstrap() {
@@ -333,11 +415,14 @@ public final class MemorialStartupActivity extends Activity {
 
             append("server: startup requested before Unity initialization");
             Log.i(TAG, "bootstrap: starting embedded server before Unity");
+            startupStage = "server.start/database/login";
+            append("storage: filesDir=" + app.getFilesDir() + " usableBytes=" + app.getFilesDir().getUsableSpace());
             int result = MemorialNative.startServer(
                     app.getFilesDir().getAbsolutePath(), app.getAssets(), nowSeconds,
                     offsetMinutes, capability);
+            drainServerLogs();
             if (result != 0) {
-                throw new IllegalStateException("native startup result " + result);
+                throw new IllegalStateException("native startup result " + result + ": " + startupCodeHint(result));
             }
             drainServerLogs();
             appendBlankLine();
@@ -355,6 +440,8 @@ public final class MemorialStartupActivity extends Activity {
             append("server: startServer returned success; database, identity and loopback ready");
             Log.i(TAG, "bootstrap: server, database, login and USN are ready");
 
+            startupStage = "native.sdk.compatibility";
+            append("sdk: loading retired native compatibility library");
             int sdkResult = MemorialNative.prepareRetiredNativeSdks();
             if (sdkResult != 0) {
                 throw new IllegalStateException("retired native SDK Hook result " + sdkResult);
@@ -362,18 +449,20 @@ public final class MemorialStartupActivity extends Activity {
             append("sdk: retired native SDK compatibility installed");
             Log.i(TAG, "bootstrap: retired native SDK compatibility is ready");
 
+            startupStage = "admin/lifecycle";
+            append("admin: initializing authenticated local client and lifecycle");
             MemorialAdminClient.initialize(MemorialNative.endpoint(), capability);
             MemorialLifecycle.register(app);
             runOnUiThread(() -> patchRuntimeAndLaunch(visibleSince));
         } catch (Throwable failure) {
             Log.e(TAG, "bootstrap failed", failure);
-            appendError(words.failed + "\n" + failure.getClass().getSimpleName()
-                    + ": " + String.valueOf(failure.getMessage()));
+            appendError(startupFailureDetails(failure));
         }
     }
 
     private void patchRuntimeAndLaunch(long visibleSince) {
         try {
+            startupStage = "runtime.hooks.arm";
             append("runtime: arming Unity-owned IL2CPP load observer");
             Log.i(TAG, "bootstrap: arming Hooks for Unity-owned IL2CPP load");
             // Unity remains the owner of libil2cpp loading. The one-shot
@@ -393,8 +482,7 @@ public final class MemorialStartupActivity extends Activity {
             mainHandler.postDelayed(() -> runFinalRitual(visibleSince, 0), cosmeticDelay(650L));
         } catch (Throwable failure) {
             Log.e(TAG, "runtime patch failed", failure);
-            appendError(words.failed + "\n" + failure.getClass().getSimpleName()
-                    + ": " + String.valueOf(failure.getMessage()));
+            appendError(startupFailureDetails(failure));
         }
     }
 
@@ -407,9 +495,20 @@ public final class MemorialStartupActivity extends Activity {
     }
 
     private void launchUnity() {
+        if (updates != null && updates.isPromptShowing()) {
+            mainHandler.postDelayed(this::launchUnity, 300L);
+            return;
+        }
         logPumpRunning = false;
-        UNITY_RELEASED = true;
-        bringUnityToFront();
+        try {
+            startupStage = "unity.activity.launch";
+            append("scene: launching " + UNITY_ACTIVITY + "; runtime Hooks install when IL2CPP loads");
+            bringUnityToFront();
+            UNITY_RELEASED = true;
+        } catch (Throwable failure) {
+            UNITY_RELEASED = false;
+            appendError(startupFailureDetails(failure));
+        }
     }
 
     private void bringUnityToFront() {
@@ -430,8 +529,10 @@ public final class MemorialStartupActivity extends Activity {
 
     private void appendError(String line) {
         Log.e(TAG, line);
+        drainServerLogs();
         logPumpRunning = false;
-        appendTerminal("[ERROR] " + line);
+        mainHandler.removeCallbacks(logPump);
+        appendTerminal("[ERROR] stage=" + startupStage + "\n" + line);
         runOnUiThread(() -> {
             startButton.setText(words.failed);
             startButton.setEnabled(false);
@@ -531,12 +632,25 @@ public final class MemorialStartupActivity extends Activity {
     private final Runnable logPump = new Runnable() {
         @Override public void run() {
             drainServerLogs();
+            long now = android.os.SystemClock.elapsedRealtime();
+            if (logPumpRunning && now - lastHeartbeat >= 10000L) {
+                lastHeartbeat = now;
+                append("startup.wait: stage=" + startupStage + "; still waiting, no failure assumed");
+            }
             if (logPumpRunning) mainHandler.postDelayed(this, 100L);
         }
     };
 
     private void drainServerLogs() {
-        String batch = MemorialNative.drainServerLogs();
+        if (!nativeLogsAvailable || diagnosticDrainFailed) return;
+        String batch;
+        try { batch = MemorialNative.drainServerLogs(); }
+        catch (Throwable failure) {
+            diagnosticDrainFailed = true;
+            logPumpRunning = false;
+            appendTerminal("[ERROR] diagnostics.native-drain: " + startupFailureDetails(failure));
+            return;
+        }
         if (batch == null || batch.isEmpty()) return;
         for (String line : batch.split("\\n")) {
             if (!line.isEmpty()) appendTerminal("│ " + line);
@@ -564,6 +678,10 @@ public final class MemorialStartupActivity extends Activity {
                 if (trim > 0) visibleLog.delete(0, trim + 1);
             }
             logView.setText(visibleLog);
+            // Bounded app-private snapshot; retain the last startup without
+            // requesting filesystem permission or collecting device logcat.
+            getSharedPreferences("ggfm_diagnostics", MODE_PRIVATE).edit()
+                    .putString("last_report", visibleLog.toString()).apply();
             logScroll.post(() -> logScroll.fullScroll(View.FOCUS_DOWN));
         });
     }
@@ -572,10 +690,51 @@ public final class MemorialStartupActivity extends Activity {
         int columns = bannerView.availableColumns(logScroll.getWidth());
         bannerView.setBanner(MemorialNative.startupBanner(columns));
         bannerScroll.setVisibility(View.VISIBLE);
-        visibleLog.clear();
-        logView.setText(visibleLog);
+        // Keep pre-banner environment/update diagnostics in the exported report.
         Log.i(TAG, "terminal: Rust ANSI Shadow banner; columns=" + columns
                 + " layout=" + (columns >= 66 ? "66-single" : "46-split"));
+    }
+
+    private void exportDiagnostics(boolean previous) {
+        pendingReport = previous ? previousReport : visibleLog.toString();
+        if (pendingReport.isEmpty()) {
+            android.widget.Toast.makeText(this, DiagnosticText.get(2), android.widget.Toast.LENGTH_LONG).show();
+            return;
+        }
+        try {
+            Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT).setType("text/plain")
+                    .addCategory(Intent.CATEGORY_OPENABLE)
+                    .putExtra(Intent.EXTRA_TITLE, previous ? "ggfm-previous-diagnostics.txt" : "ggfm-diagnostics.txt");
+            startActivityForResult(intent, EXPORT_DIAGNOSTICS);
+        } catch (Exception failure) {
+            appendTerminal("[ERROR] diagnostics.document-picker: " + startupFailureDetails(failure));
+        }
+    }
+
+    private void copyDiagnostics() {
+        try {
+            android.content.ClipboardManager clipboard = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+            if (clipboard == null) throw new IllegalStateException("clipboard service unavailable");
+            clipboard.setPrimaryClip(android.content.ClipData.newPlainText("GGFM diagnostics", visibleLog.toString()));
+            android.widget.Toast.makeText(this, DiagnosticText.get(5), android.widget.Toast.LENGTH_SHORT).show();
+        } catch (Exception failure) {
+            appendTerminal("[ERROR] diagnostics.clipboard: " + startupFailureDetails(failure));
+        }
+    }
+
+    static String startupCodeHint(int result) {
+        switch (result) {
+            case -5: return "server thread could not start; see native diagnostics";
+            case -6: return "server readiness failed; see preceding catalog/database/runtime error";
+            case -7: return "master asset materialization failed; source asset/storage details above";
+            case -10: return "Patch/Server ABI mismatch; matched runtime artifacts required";
+            case -11: return "native loader/Hook preparation failed; not a network connectivity error";
+            case -12: return "Java VM/admin bridge initialization failed";
+            case -13: return "Patch/Server policy mismatch; matched runtime artifacts required";
+            case -14: return "login returned no valid active USN";
+            case -15: return "active USN could not be bound; process identity cannot change during play";
+            default: return "startup or login rejected; consult stage and native diagnostics above";
+        }
     }
 
     private Typeface terminalTypeface() {

@@ -507,6 +507,27 @@ def transform_database(asset_name: str, raw: bytes, policy: dict[str, Any]) -> t
                     raise RuntimeError("Achievement has no condition columns")
                 scale_columns(connection, table, condition_columns, multiplier, report,
                               tuple(policy["scaledAchievementIds"]))
+            if table == "SubscribePass":
+                # This is the client's display catalog. The Server's master is
+                # extracted from the original bundle, and applies this policy
+                # once when handling paidEventPoint. Keep prices/goals intact.
+                require_columns(connection, table, {"i_PaidPoint", "i_ADPoint"})
+                point_multiplier = policy["passPointMultiplier"]
+                if type(point_multiplier) is not int or point_multiplier < 1:
+                    raise RuntimeError("passPointMultiplier must be a positive integer")
+                for rowid, paid, ad in connection.execute(
+                    "SELECT rowid,i_PaidPoint,i_ADPoint FROM SubscribePass"
+                ).fetchall():
+                    values = (paid, ad)
+                    if any(type(value) is not int or value < 0
+                           or value * point_multiplier > 2_147_483_647 for value in values):
+                        raise RuntimeError("SubscribePass point display outside Int32 range")
+                    connection.execute(
+                        "UPDATE SubscribePass SET i_PaidPoint=?,i_ADPoint=? WHERE rowid=?",
+                        (paid * point_multiplier, ad * point_multiplier, rowid),
+                    )
+                report["SubscribePass.effectivePointDisplay"] = connection.execute(
+                    "SELECT COUNT(*) FROM SubscribePass").fetchone()[0]
             if table == "FollowerProfileLevel":
                 require_columns(connection, table, {"d_RequireEXP"})
                 # Reward production is already accelerated; do not also lower
