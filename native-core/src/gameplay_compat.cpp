@@ -1,6 +1,7 @@
 #include "ggfm/gameplay_compat.hpp"
 #include "ggfm/client_save.hpp"
 #include "ggfm/gameplay_rules.hpp"
+#include "ggfm/upgrade_increment.hpp"
 #include "ggfm/runtime.hpp"
 
 #include <array>
@@ -39,6 +40,35 @@ using GetTable = void* (*)(const void*);
 GetTable get_table = nullptr;
 using BuyApClick = void (*)(void*, const void*);
 BuyApClick original_buy_ap_click = nullptr;
+using MasterConstructor = void (*)(void*, void*, const void*);
+MasterConstructor original_skill_constructor = nullptr;
+MasterConstructor original_unit_constructor = nullptr;
+EncodeUpgradeFloat encode_upgrade_float = nullptr;
+static_assert(Field("upgrade.row.increment") != 0);
+static_assert(Field("upgrade.skillDto.increment") != 0);
+static_assert(Field("upgrade.unitDto.increment") != 0);
+
+void RestoreMasterIncrement(void* row, void* dto, std::string_view kind,
+                            std::uintptr_t source_offset) {
+  // Stock RPC constructors truncate double -> int -> float. The SQL reader
+  // already preserves float values. Repair just this field after the original
+  // constructor, using the game's value constructor (including its state).
+  const bool restored = RestoreUpgradeIncrement(row, dto, source_offset,
+      Field("upgrade.row.increment"), encode_upgrade_float);
+  __android_log_print(restored ? ANDROID_LOG_DEBUG : ANDROID_LOG_ERROR, "GGFM",
+      "master: %.*s fractional upgrade increment restored=%d",
+      static_cast<int>(kind.size()), kind.data(), restored);
+}
+
+void SkillConstructor(void* row, void* dto, const void* method) {
+  original_skill_constructor(row, dto, method);
+  RestoreMasterIncrement(row, dto, "skill", Field("upgrade.skillDto.increment"));
+}
+
+void UnitConstructor(void* row, void* dto, const void* method) {
+  original_unit_constructor(row, dto, method);
+  RestoreMasterIncrement(row, dto, "unit", Field("upgrade.unitDto.increment"));
+}
 
 void RetiredBuyApClick(void*, const void*) {
   // Same boundary as the tested LSPosed adapter: the stock retired BuyAP
@@ -133,14 +163,21 @@ int QuestClaimState(void* instance, int index, const void* method) {
 
 bool InitializeGameplayCompatibility(const std::uintptr_t il2cpp_base) {
   for (const auto& dependency : kGeneratedDependencies) {
+    if (dependency.name == "gameplay.upgrade.encodeFloat") {
+      encode_upgrade_float = reinterpret_cast<EncodeUpgradeFloat>(il2cpp_base + dependency.rva);
+    }
     if (dependency.name == "gameplay.table.instance") {
       get_table = reinterpret_cast<GetTable>(il2cpp_base + dependency.rva);
     }
   }
-  return get_table != nullptr && InitializeClientSave(il2cpp_base);
+  return get_table != nullptr && encode_upgrade_float != nullptr && InitializeClientSave(il2cpp_base);
 }
 
 HookBinding ResolveGameplayCompatibilityHook(std::string_view name) {
+  if (name == "gameplay.upgrade.skillConstructor")
+    return {reinterpret_cast<void*>(SkillConstructor), reinterpret_cast<void**>(&original_skill_constructor)};
+  if (name == "gameplay.upgrade.unitConstructor")
+    return {reinterpret_cast<void*>(UnitConstructor), reinterpret_cast<void**>(&original_unit_constructor)};
   if (name.starts_with("gameplay.save.")) return ResolveClientSaveHook(name);
   if (name == "gameplay.ch3.buyApGuard")
     return {reinterpret_cast<void*>(RetiredBuyApClick),

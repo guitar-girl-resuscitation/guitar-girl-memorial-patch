@@ -34,6 +34,8 @@
     "label": "Guitar Girl Fan Memorial Build"
   },
   "il2cppHooks": [
+    {"name":"gameplay.upgrade.skillConstructor","rva":"0x15BB400","prologue":"F04F2DE904D04DE2028B2DED7EDF4DE2"},
+    {"name":"gameplay.upgrade.unitConstructor","rva":"0x1386910","prologue":"F04F2DE904D04DE2028B2DED1ADE4DE2"},
     {
       "name": "offline.calculate",
       "rva": "0x14d0270",
@@ -380,6 +382,7 @@
     {"name":"ui.unlockFanCostume.confirm","rva":"0xF69FF8","prologue":"30482DE90040A0E10000A0E322D918EB"}
   ],
   "il2cppDependencies": [
+    {"name":"gameplay.upgrade.encodeFloat","rva":"0xD38730","prologue":"00482DE95000C0F20020A0E10030A0E3"},
     {"name":"ui.popupBase.confirm","rva":"0xDCFC80","prologue":"10402DE91C1090E50040A0E11810A0E5"},
     {
       "name": "pmang.commitLocalMembership",
@@ -433,6 +436,9 @@
     }
   ],
   "il2cppFields": {
+    "upgrade.row.increment":"0xB0",
+    "upgrade.skillDto.increment":"0x90",
+    "upgrade.unitDto.increment":"0x88",
     "popup.openCallback": "0x10",
     "popup.closing": "0x1A",
     "popup.waitState": "0x8",
