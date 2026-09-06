@@ -90,7 +90,8 @@
     {"name":"prefs.getString","rva":"0x3ADA478","prologue":"FF4303D1FE570BA9F44F0CA9B53E00F0"},
     {"name":"prefs.hasKey","rva":"0x3ADA7C4","prologue":"FF4301D1FE1B00F9F44F04A9B43E00F0"},
     {"name":"prefs.deleteKey","rva":"0x3ADA974","prologue":"FF4301D1FE1B00F9F44F04A9B43E00F0"},
-    {"name":"prefs.deleteAll","rva":"0x3ADAB18","prologue":"FE4FBFA9B33E00F060EA41F9A00000B5"}
+    {"name":"prefs.deleteAll","rva":"0x3ADAB18","prologue":"FE4FBFA9B33E00F060EA41F9A00000B5"},
+    {"name":"ui.popupOpenAnimation","rva":"0x21D8314","prologue":"E80F1DFCFE0700F9F65701A9F44F02A9"}
   ],
   "il2cppDependencies": [
     {"name":"pmang.commitLocalMembership","rva":"0x1E217D0","prologue":"FE5FBDA9F65701A9F44F02A9F30300AA"},

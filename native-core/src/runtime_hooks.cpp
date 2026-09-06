@@ -74,8 +74,10 @@ using RuntimeInvoke = void* (*)(const void*, void*, void**, void**);
 using MaintenanceHandler = bool (*)(void*, void*, void*, const void*);
 using MaintenancePopup = void (*)(void*, void**, void*, void*, const void*);
 using ManagedTransition = void (*)(void*, const void*);
+using PopupOpenAnimation = void (*)(void*, void*, const void*);
 
 UrlGetter unused_url_original = nullptr;
+PopupOpenAnimation original_popup_open_animation = nullptr;
 SendRequest original_send = nullptr;
 SetInt original_set_int = nullptr;
 GetInt original_get_int = nullptr;
@@ -370,6 +372,19 @@ void PmangMembershipLoginHook(void* manager, void* on_success, void* on_failure,
   InvokeDelegate(ready ? on_success : on_failure, nullptr, 0);
 }
 
+void PopupOpenAnimationHook(void* animation, void* on_loaded, const void* method) {
+  // The stock open coroutine defers the popup's loaded callback until a fixed
+  // lead-in plus the prefab's own tween duration have elapsed. Until it runs,
+  // the popup layer answers no touch at all -- confirm button and dimmed
+  // background alike -- even though the card reaches its final geometry much
+  // earlier, so a player who presses at a natural speed loses that press and
+  // has to press a second time. Play the stock animation with no deferred
+  // callback, and mark the popup loaded at once so the first press on a fully
+  // drawn popup is honoured. Nothing about the animation itself changes.
+  original_popup_open_animation(animation, nullptr, method);
+  InvokeDelegate(on_loaded, nullptr, 0);
+}
+
 void DoStorePurchaseHook(void* manager, void* purchase_data, const void*) {
   using DoServerPurchase = void (*)(void*, void*, const void*);
   reinterpret_cast<DoServerPurchase>(do_server_purchase_address)(
@@ -564,6 +579,9 @@ HookBinding Resolve(const std::string_view name) {
     return {reinterpret_cast<void*>(NoReadyAdHook), nullptr};
   if (name == "billing.doStorePurchase")
     return {reinterpret_cast<void*>(DoStorePurchaseHook), nullptr};
+  if (name == "ui.popupOpenAnimation")
+    return {reinterpret_cast<void*>(PopupOpenAnimationHook),
+            reinterpret_cast<void**>(&original_popup_open_animation)};
   if (name == "billing.pendingPlatformOrders")
     return {reinterpret_cast<void*>(RetryPendingPlatformOrdersHook), nullptr};
   if (name == "firebase.managerInitialize")
