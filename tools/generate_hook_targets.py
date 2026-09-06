@@ -31,7 +31,12 @@ def generate(manifest_path: Path) -> str:
     if len(names) != len(set(names)):
         raise ValueError("hook and dependency names must be unique")
 
-    lines = ["// Generated from compatibility manifest. Do not edit."]
+    abi = manifest.get("source", {}).get("abi", "arm64-v8a")
+    widths = {"arm64-v8a": 8, "armeabi-v7a": 4}
+    if abi not in widths:
+        raise ValueError(f"unsupported compatibility ABI: {abi}")
+    lines = ["// Generated from compatibility manifest. Do not edit.",
+             f'static_assert(sizeof(void*) == {widths[abi]}, "Compatibility manifest ABI does not match compiler target");']
     lines.append(f"constexpr std::array<HookTarget, {len(hooks)}> kGeneratedHookTargets = {{{{")
     for item in hooks:
         lines.append(

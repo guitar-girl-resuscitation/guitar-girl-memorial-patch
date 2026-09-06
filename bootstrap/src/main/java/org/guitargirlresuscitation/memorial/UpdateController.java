@@ -115,7 +115,9 @@ final class UpdateController {
                 JSONObject latest;
                 try (InputStream stream = connection.getInputStream()) { latest = readJson(stream); }
                 if (latest.getInt("schema") != 1 || !UpdateRules.compatible(activity.getPackageName(), signer,
-                        latest.getString("applicationId"), latest.getString("signerSha256"))) {
+                        latest.getString("applicationId"), latest.getString("signerSha256"))
+                        || !UpdateRules.compatibleAbi(android.os.Build.SUPPORTED_ABIS,
+                                latest.optString("androidAbi", "arm64-v8a"))) {
                     prefs.edit().remove("update_latest_code").apply();
                     message = LauncherText.get(LauncherText.MISMATCH);
                     diagnostic.accept("[WARN] update.check: incompatible package/signing identity; rejected");

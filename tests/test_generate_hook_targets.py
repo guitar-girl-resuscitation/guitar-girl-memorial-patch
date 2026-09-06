@@ -15,6 +15,13 @@ SPEC.loader.exec_module(MODULE)
 
 
 class HookGeneratorTests(unittest.TestCase):
+    def test_playerprefs_save_is_native_but_key_isolation_remains(self):
+        manifest = json.loads((ROOT / "compatibility/8.0.0.json").read_text(encoding="utf-8"))
+        names = {row["name"] for row in manifest["il2cppHooks"]}
+        self.assertNotIn("prefs.save", names)
+        self.assertTrue({"prefs.setInt", "prefs.getInt", "prefs.setString",
+                         "prefs.getString", "prefs.deleteKey", "prefs.deleteAll"} <= names)
+
     def test_settings_disable_uses_body_not_adjacent_language_stub(self):
         manifest = json.loads((ROOT / "compatibility/8.0.0.json").read_text(encoding="utf-8"))
         entry = next(row for row in manifest["il2cppHooks"] if row["name"] == "ui.setting.disable")
@@ -23,7 +30,8 @@ class HookGeneratorTests(unittest.TestCase):
         loader = (ROOT / "native-core/src/standalone_loader.cpp").read_text(encoding="utf-8")
         self.assertIn("dobby_enable_near_branch_trampoline();", loader)
         core = (ROOT / "native-core/src/core.cpp").read_text(encoding="utf-8")
-        self.assertIn("std::memcmp(before + 4, after + 4", core)
+        self.assertIn("patch_span = sizeof(void*) == 4 ? 8 : 4", core)
+        self.assertIn("std::memcmp(before + patch_span, after + patch_span", core)
 
     def test_pass_selection_is_a_scrollable_list_with_generation_checked_events(self):
         source = (ROOT / "native-core/src/memorial_ui.cpp").read_text(encoding="utf-8")

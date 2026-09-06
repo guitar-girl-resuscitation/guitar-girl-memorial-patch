@@ -11,5 +11,11 @@ final class UpdateRules {
     static boolean newer(long installed, long offered) {
         return installed > 0 && offered > installed && offered <= 2100000000L;
     }
+    static boolean compatibleAbi(String[] supported, String offered) {
+        if (supported == null || offered == null) return false;
+        if (!"arm64-v8a".equals(offered) && !"armeabi-v7a".equals(offered)) return false;
+        for (String abi : supported) if (offered.equals(abi)) return true;
+        return false;
+    }
     private UpdateRules() {}
 }

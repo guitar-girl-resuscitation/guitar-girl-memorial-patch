@@ -16,12 +16,16 @@ SERVER_REPO = "guitar-girl-resuscitation/guitar-girl-memorial-server"
 def run(*args):
     subprocess.run(list(map(str, args)), cwd=ROOT, check=True)
 
-def fetch_server(tag, directory):
+def fetch_server(tag, directory, abi="arm64-v8a"):
     if not tag or any(c not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-" for c in tag):
         raise SystemExit("invalid Server release tag")
     release = json.loads(subprocess.check_output(
         ["gh", "api", f"repos/{SERVER_REPO}/releases/tags/{tag}"], text=True))
-    asset = next(a for a in release["assets"] if a["name"] == "ggfm-server-android-arm64.zip")
+    architecture = {"arm64-v8a": "arm64", "armeabi-v7a": "armv7"}[abi]
+    kind = f"server-android-{architecture}"
+    asset = next((a for a in release["assets"] if a["name"] == f"ggfm-{kind}.zip"), None)
+    if asset is None:
+        raise SystemExit(f"Server release has no verified {abi} artifact")
     archive = directory / asset["name"]
     # Download by immutable asset ID, not a moving tag URL.
     with archive.open("xb") as out:
@@ -31,7 +35,7 @@ def fetch_server(tag, directory):
     if github_digest != "sha256:" + digest(archive).lower():
         raise SystemExit("GitHub release asset digest missing/mismatched")
     metadata = verify_archive(archive)
-    if metadata["kind"] != "server-android-arm64" or metadata["serverAbi"] != 1:
+    if metadata["kind"] != kind or metadata["serverAbi"] != 1:
         raise SystemExit("unsupported Server artifact")
     if release["target_commitish"] != metadata["sourceCommit"]:
         raise SystemExit("release target differs from compiled source")
@@ -42,6 +46,7 @@ def fetch_server(tag, directory):
     return {
         "repository": SERVER_REPO, "releaseId": release["id"], "tag": tag,
         "sourceCommit": metadata["sourceCommit"], "serverAbi": 1,
+        "androidAbi": abi,
         "archiveSha256": digest(archive), "sha256": digest(directory / "libggfm_server.so"),
         "policySha256": digest(directory / "memorial-policy.json"),
     }
@@ -51,8 +56,17 @@ def main():
     p.add_argument("--sdk", type=Path, required=True)
     p.add_argument("--java-home", type=Path, required=True)
     p.add_argument("--server-tag", default="nightly")
+    p.add_argument("--abi", choices=["arm64-v8a", "armeabi-v7a"], default="arm64-v8a")
+    p.add_argument("--compatibility-manifest", type=Path)
     p.add_argument("--output", type=Path, default=ROOT / "build/release-runtime")
     args = p.parse_args()
+    compatibility = args.compatibility_manifest or ROOT / "compatibility" / (
+        "8.0.0.json" if args.abi == "arm64-v8a" else "8.0.0-armv7.json")
+    if not compatibility.is_file():
+        raise SystemExit(f"No compatibility profile for {args.abi}: {compatibility}")
+    profile = json.loads(compatibility.read_text(encoding="utf-8"))
+    if profile.get("source", {}).get("abi", "arm64-v8a") != args.abi:
+        raise SystemExit("Compatibility profile ABI does not match requested ABI")
     work = args.output.resolve()
     if work.exists():
         raise SystemExit("refusing to overwrite runtime build directory")
@@ -66,7 +80,7 @@ def main():
     toolchain = ndk / "build/cmake/android.toolchain.cmake"
     if not all(p.is_file() for p in (toolchain, cmake, ninja)):
         raise SystemExit("required NDK or SDK CMake 3.22.1 is missing")
-    server = fetch_server(args.server_tag, work)
+    server = fetch_server(args.server_tag, work, args.abi)
     if server["policySha256"] != digest(ROOT / "policy/memorial-policy.v1.json"):
         raise SystemExit("Server/Patch policy mismatch; update both deliberately")
     source = work / "dobby-source"
@@ -78,10 +92,13 @@ def main():
     if actual != deps["dobby"]["commit"]:
         raise SystemExit("Dobby commit mismatch")
     run(sys.executable, ROOT / "tools/harden_dobby.py", source, "--apply")
+    if args.abi == "armeabi-v7a":
+        run(sys.executable, ROOT / "tools/fix_dobby_arm.py", source, "--apply")
     common = ["-G", "Ninja", f"-DCMAKE_TOOLCHAIN_FILE={toolchain}",
               f"-DCMAKE_MAKE_PROGRAM={ninja}",
-              "-DCMAKE_SYSTEM_NAME=Android", "-DCMAKE_SYSTEM_PROCESSOR=aarch64",
-              "-DANDROID_ABI=arm64-v8a", "-DANDROID_PLATFORM=android-23",
+              "-DCMAKE_SYSTEM_NAME=Android",
+              "-DCMAKE_SYSTEM_PROCESSOR=" + ("aarch64" if args.abi == "arm64-v8a" else "arm"),
+              f"-DANDROID_ABI={args.abi}", "-DANDROID_PLATFORM=android-23",
               "-DCMAKE_BUILD_TYPE=Release"]
     dobby_build = work / "dobby-build"
     run(cmake, "-S", source, "-B", dobby_build, *common,
@@ -91,6 +108,7 @@ def main():
     dobby = dobby_build / "libdobby.so"
     native = work / "native"
     run(cmake, "-S", ROOT, "-B", native, *common,
+        f"-DGGFM_COMPATIBILITY_MANIFEST={compatibility.resolve()}",
         f"-DGGFM_DOBBY_LIBRARY={dobby}", f"-DGGFM_DOBBY_SHA256={digest(dobby)}",
         f"-DGGFM_SERVER_LIBRARY={work / 'libggfm_server.so'}",
         f"-DGGFM_SERVER_SHA256={server['sha256']}")
@@ -107,7 +125,7 @@ def main():
         raise SystemExit("Dobby license missing")
     shutil.copyfile(license_file, work / "DOBBY-LICENSE")
     with (work / "dependencies.json").open("x", encoding="utf-8") as stream:
-        json.dump({"schema": 1, "server": server,
+        json.dump({"schema": 1, "androidAbi": args.abi, "server": server,
                    "dobby": {**deps["dobby"], "sha256": digest(dobby)},
                    "policySha256": server["policySha256"]}, stream, indent=2)
     print(f"Runtime built. Server source: {server['sourceCommit']}")

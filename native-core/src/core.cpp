@@ -25,6 +25,14 @@ bool InstallHooks(HookBackend& backend, const std::uintptr_t il2cpp_base,
   if (il2cpp_base == 0 || resolve_replacement == nullptr) return false;
   // Validate the complete version fingerprint before changing one instruction.
   for (const auto& target : targets) {
+    // This ARMv7 profile is an ARM-state IL2CPP build. Thumb profiles need
+    // explicit instruction-state/size handling and must not silently use it.
+    if constexpr (sizeof(void*) == 4) {
+      if ((target.rva & 3) != 0) {
+        __android_log_print(ANDROID_LOG_ERROR, "GGFM", "runtime: non-ARM-state target in ARMv7 profile");
+        return false;
+      }
+    }
     const FingerprintTarget fingerprint{target.name, target.rva,
                                         target.expected_prologue};
     if (!ValidateFingerprints(il2cpp_base,
@@ -55,10 +63,11 @@ bool InstallHooks(HookBackend& backend, const std::uintptr_t il2cpp_base,
     }
     std::uint8_t after[16]{};
     std::memcpy(after, address, sizeof(after));
-    // ARM64 near routing changes exactly one instruction. A fallback absolute
-    // jump can overwrite adjacent 4/8-byte IL2CPP methods; never enter Unity
-    // with that corruption even if Dobby reports installation success.
-    if (std::memcmp(before + 4, after + 4, sizeof(before) - 4) != 0) {
+    // ARM64 near routing is one 4-byte instruction. The pinned ARM32 backend
+    // uses an 8-byte literal branch; its profile must verify an >=8-byte body.
+    // Keep checking the untouched tail instead of disabling the adjacency guard.
+    constexpr std::size_t patch_span = sizeof(void*) == 4 ? 8 : 4;
+    if (std::memcmp(before + patch_span, after + patch_span, sizeof(before) - patch_span) != 0) {
       __android_log_print(ANDROID_LOG_ERROR, "GGFM",
                           "runtime: unsafe hook span for %.*s; adjacent instructions changed",
                           static_cast<int>(target.name.size()), target.name.data());
@@ -72,9 +81,10 @@ bool InstallHooks(HookBackend& backend, const std::uintptr_t il2cpp_base,
       return false;
     }
     __android_log_print(ANDROID_LOG_INFO, "GGFM",
-                        "runtime: Hook active for %.*s at 0x%" PRIxPTR,
+                        "runtime: Hook active for %.*s at 0x%" PRIxPTR " replacement=%p original=%p",
                         static_cast<int>(target.name.size()), target.name.data(),
-                        reinterpret_cast<std::uintptr_t>(address));
+                        reinterpret_cast<std::uintptr_t>(address), binding.replacement,
+                        binding.original == nullptr ? nullptr : *binding.original);
   }
   return true;
 }

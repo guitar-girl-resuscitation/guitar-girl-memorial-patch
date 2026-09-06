@@ -10,7 +10,7 @@ if(NOT ANDROID)
   message(FATAL_ERROR "The production patch must be cross-compiled with the Android NDK")
 endif()
 if(NOT DEFINED GGFM_DOBBY_LIBRARY OR NOT EXISTS "${GGFM_DOBBY_LIBRARY}")
-  message(FATAL_ERROR "GGFM_DOBBY_LIBRARY must point to the pinned arm64-v8a Dobby artifact")
+  message(FATAL_ERROR "GGFM_DOBBY_LIBRARY must point to the pinned Dobby artifact for the selected ABI")
 endif()
 string(LENGTH "${GGFM_DOBBY_SHA256}" GGFM_DOBBY_SHA256_LENGTH)
 if(NOT DEFINED GGFM_DOBBY_SHA256 OR NOT GGFM_DOBBY_SHA256_LENGTH EQUAL 64 OR GGFM_DOBBY_SHA256 MATCHES "[^0-9A-Fa-f]")
@@ -46,7 +46,13 @@ add_library(ggfm_server SHARED IMPORTED)
 set_target_properties(ggfm_server PROPERTIES IMPORTED_LOCATION "${GGFM_SERVER_LIBRARY}")
 
 set(GGFM_COMPATIBILITY_MANIFEST
-    "${CMAKE_CURRENT_SOURCE_DIR}/compatibility/8.0.0.json")
+    "${CMAKE_CURRENT_SOURCE_DIR}/compatibility/8.0.0.json"
+    CACHE FILEPATH "Verified compatibility manifest for this exact target ABI")
+file(READ "${GGFM_COMPATIBILITY_MANIFEST}" GGFM_COMPATIBILITY_JSON)
+string(JSON GGFM_COMPATIBILITY_ABI GET "${GGFM_COMPATIBILITY_JSON}" source abi)
+if(NOT GGFM_COMPATIBILITY_ABI STREQUAL ANDROID_ABI)
+  message(FATAL_ERROR "Compatibility manifest ABI does not match ANDROID_ABI")
+endif()
 set(GGFM_GENERATED_INCLUDE
     "${CMAKE_CURRENT_BINARY_DIR}/generated/ggfm/generated_hook_targets.inc")
 set(GGFM_GENERATED_LOCALIZATION

@@ -1,0 +1,477 @@
+{
+  "schema": 1,
+  "source": {
+    "abi": "armeabi-v7a",
+    "version": "8.0.0",
+    "xapkSha256": "7EBF703417DC609D6193A8F56CA842ED0733CBB72FB8145F58D07A8EE810BFCA",
+    "splits": [
+      {
+        "name": "com.neowiz.game.guitargirl.apk",
+        "sha256": "D770305126594048DB05CC593C395761C20C06FC97EBFAB88285DF3998564F87"
+      },
+      {
+        "name": "config.armeabi_v7a.apk",
+        "sha256": "49848F553811A72379385A90CCC7CB3BBB0622FD39D13AAA757C1319071C69E6"
+      },
+      {
+        "name": "base_assets.apk",
+        "sha256": "5854156B052C6D7A8AAA8B920393741535EA7BCB993D3FA0BE9B7D133D8E8886"
+      }
+    ],
+    "il2cpp": {
+      "sha256": "97DFF2AD26A0CB8A044C4AFDF9F64D9063EFC1D35CCEA2FDB8F1FB78864E0195",
+      "buildId": "878376CF8D0AF87F0BA0A6299A8BAD4FF50CBA1C"
+    },
+    "globalMetadata": {
+      "sha256": "863A1CFC5AB50EDF35E75F780E458C2190FF82D84698705D015CE200733B799B"
+    },
+    "masterBundle": {
+      "sha256": "6E0782E1DFE11B469E73AD5D8BB02B3763778BE8D0F3FCA4C99A841ACBDE2F3A"
+    }
+  },
+  "output": {
+    "applicationId": "org.guitargirlresuscitation.memorial",
+    "label": "Guitar Girl Fan Memorial Build"
+  },
+  "il2cppHooks": [
+    {
+      "name": "offline.calculate",
+      "rva": "0x14d0270",
+      "prologue": "F0482DE910D04DE2F4529FE50040A0E1"
+    },
+    {
+      "name": "offline.elapsed",
+      "rva": "0x14d0998",
+      "prologue": "F04B2DE9028B2DED28D04DE23C639FE5"
+    },
+    {
+      "name": "offline.reward",
+      "rva": "0x14d0d30",
+      "prologue": "F04F2DE904D04DE2028B2DED20D04DE2"
+    },
+    {
+      "name": "gameplay.save.characterUpgrade",
+      "rva": "0xf49330",
+      "prologue": "F04F2DE91CD04DE284439FE50080A0E1"
+    },
+    {
+      "name": "gameplay.save.followerUpgrade",
+      "rva": "0xf40d64",
+      "prologue": "F04F2DE924D04DE2C0629FE50080A0E1"
+    },
+    {
+      "name": "gameplay.music.auditBinding",
+      "rva": "0x14aab94",
+      "prologue": "F04B2DE920D04DE238519FE50040A0E1"
+    },
+    {
+      "name": "gameplay.music.load",
+      "rva": "0x12a3a20",
+      "prologue": "F04F2DE994D04DE208208DE500A0A0E1"
+    },
+    {
+      "name": "gameplay.costume.load",
+      "rva": "0x113ecc4",
+      "prologue": "F04F2DE954D04DE24C489FE500B0A0E1"
+    },
+    {
+      "name": "gameplay.adLevel.load",
+      "rva": "0x13a2ce4",
+      "prologue": "F0472DE918D04DE244529FE50090A0E1"
+    },
+    {
+      "name": "gameplay.pass.setWindow",
+      "rva": "0x159e124",
+      "prologue": "F0472DE988519FE50040A0E10280A0E1"
+    },
+    {
+      "name": "gameplay.quest.update",
+      "rva": "0x1126650",
+      "prologue": "F04F2DE984D04DE250429FE50080A0E1"
+    },
+    {
+      "name": "gameplay.quest.getState",
+      "rva": "0x1127308",
+      "prologue": "70402DE9028B2DED106090E50140A0E1"
+    },
+    {
+      "name": "gameplay.ch3.buyApGuard",
+      "rva": "0x16f5750",
+      "prologue": "240090E5020050E31EFF2F1110402DE9"
+    },
+    {
+      "name": "server.webInvitation",
+      "rva": "0x1349cd0",
+      "prologue": "540090E51EFF2FE1400090E51EFF2FE1"
+    },
+    {
+      "name": "server.api",
+      "rva": "0x1349cd8",
+      "prologue": "400090E51EFF2FE12400D0E51EFF2FE1"
+    },
+    {
+      "name": "server.webPlay",
+      "rva": "0x134a334",
+      "prologue": "500090E51EFF2FE1140090E5030040E2"
+    },
+    {
+      "name": "server.routing",
+      "rva": "0x134a37c",
+      "prologue": "30482DE978509FE50040A0E105508FE0"
+    },
+    {
+      "name": "server.cdn",
+      "rva": "0x134a414",
+      "prologue": "440090E51EFF2FE1580090E51EFF2FE1"
+    },
+    {
+      "name": "server.webMission",
+      "rva": "0x134a41c",
+      "prologue": "580090E51EFF2FE14010A0E5BEDEE3EA"
+    },
+    {
+      "name": "server.com",
+      "rva": "0x134a480",
+      "prologue": "480090E51EFF2FE11EFF2FE1280090E5"
+    },
+    {
+      "name": "server.webMarble",
+      "rva": "0x134a494",
+      "prologue": "4C0090E51EFF2FE1200090E51EFF2FE1"
+    },
+    {
+      "name": "compat.applicationVersion",
+      "rva": "0x3291240",
+      "prologue": "70402DE918D04DE2F0409FE504408FE0"
+    },
+    {
+      "name": "request.send",
+      "rva": "0x367afbc",
+      "prologue": "30482DE90040A0E1C8FFFFEB0050A0E1"
+    },
+    {
+      "name": "ads.requestAndShow",
+      "rva": "0xfa731c",
+      "prologue": "F0412DE908D04DE240419FE50080A0E1"
+    },
+    {
+      "name": "ads.noReady",
+      "rva": "0xfd2000",
+      "prologue": "F0412DE908D04DE20000A0E30340A0E1"
+    },
+    {
+      "name": "ads.managerInitialize",
+      "rva": "0x102bfb0",
+      "prologue": "70402DE9101090E50040A0E11C10A0E5"
+    },
+    {
+      "name": "appsflyer.managerInitialize",
+      "rva": "0x11db304",
+      "prologue": "30482DE9E4509FE50040A0E105508FE0"
+    },
+    {
+      "name": "pmang.membershipLogin",
+      "rva": "0x111a558",
+      "prologue": "F0482DE94C619FE50040A0E10250A0E1"
+    },
+    {
+      "name": "billing.doStorePurchase",
+      "rva": "0x15f7084",
+      "prologue": "70402DE964419FE50060A0E10150A0E1"
+    },
+    {
+      "name": "billing.pendingPlatformOrders",
+      "rva": "0xf87098",
+      "prologue": "30482DE96C509FE50140A0E105508FE0"
+    },
+    {
+      "name": "firebase.managerInitialize",
+      "rva": "0x163c1c4",
+      "prologue": "70402DE954519FE50040A0E105508FE0"
+    },
+    {
+      "name": "firebase.analytics.setUserId",
+      "rva": "0x1742a94",
+      "prologue": "30482DE94C509FE50040A0E105508FE0"
+    },
+    {
+      "name": "firebase.analytics.setUserProperty",
+      "rva": "0x1742bd8",
+      "prologue": "70402DE954609FE50050A0E10140A0E1"
+    },
+    {
+      "name": "firebase.crashlytics.setUserId",
+      "rva": "0x1772850",
+      "prologue": "B0402DE974509FE50040A0E105508FE0"
+    },
+    {
+      "name": "firebase.analytics.logEvent.string",
+      "rva": "0x1741784",
+      "prologue": "F0482DE9C8709FE50060A0E10240A0E1"
+    },
+    {
+      "name": "firebase.analytics.logEvent.double",
+      "rva": "0x17418f8",
+      "prologue": "F0412DE908D04DE2D4809FE50070A0E1"
+    },
+    {
+      "name": "firebase.analytics.logEvent.int64",
+      "rva": "0x1741a7c",
+      "prologue": "F0412DE908D04DE2D4809FE50070A0E1"
+    },
+    {
+      "name": "firebase.analytics.logEvent.int32",
+      "rva": "0x1741bf0",
+      "prologue": "F0482DE9C8709FE50060A0E10240A0E1"
+    },
+    {
+      "name": "firebase.analytics.logEvent.name",
+      "rva": "0x1741d44",
+      "prologue": "30482DE9B8509FE50040A0E105508FE0"
+    },
+    {
+      "name": "firebase.analytics.logEvent.parameters",
+      "rva": "0x1741f8c",
+      "prologue": "F0412DE910D04DE204719FE50080A0E1"
+    },
+    {
+      "name": "notice.loadDontShowDay",
+      "rva": "0x13fea2c",
+      "prologue": "30482DE910D04DE2A0409FE504408FE0"
+    },
+    {
+      "name": "notice.maintenanceHandlerObject",
+      "rva": "0x19310dc",
+      "prologue": "70402DE908D04DE274519FE50240A0E1"
+    },
+    {
+      "name": "notice.maintenanceHandlerShared",
+      "rva": "0x1931284",
+      "prologue": "70402DE908D04DE274519FE50240A0E1"
+    },
+    {
+      "name": "notice.maintenancePopup",
+      "rva": "0xdb02ac",
+      "prologue": "F0412DE908D04DE2405090E50380A0E1"
+    },
+    {
+      "name": "notice.goToInGame",
+      "rva": "0xfae6a8",
+      "prologue": "10402DE90010A0E3479634EB0000A0E3"
+    },
+    {
+      "name": "notice.goToEventIntro",
+      "rva": "0xfae6dc",
+      "prologue": "10402DE90010A0E33A9634EB0000A0E3"
+    },
+    {
+      "name": "ui.setting.show",
+      "rva": "0x1113d90",
+      "prologue": "F0482DE904529FE50040A0E105508FE0"
+    },
+    {
+      "name": "ui.setting.refresh",
+      "rva": "0x1112414",
+      "prologue": "30482DE90040A0E12A0000EB0400A0E1"
+    },
+    {
+      "name": "ui.setting.enable",
+      "rva": "0x1114bf0",
+      "prologue": "10402DE90040A0E178E5FFEB0400A0E1"
+    },
+    {
+      "name": "ui.setting.disable",
+      "rva": "0x1113b28",
+      "prologue": "30482DE9E4509FE50040A0E105508FE0"
+    },
+    {
+      "name": "ui.mailbox.start",
+      "rva": "0x1612b74",
+      "prologue": "10402DE90040A0E1040000EB0010A0E1"
+    },
+    {
+      "name": "ui.setting.authVisibility",
+      "rva": "0x1112c30",
+      "prologue": "F0412DE9EC519FE50040A0E105508FE0"
+    },
+    {
+      "name": "ui.setting.login",
+      "rva": "0x1114c8c",
+      "prologue": "F04B2DE910D04DE210419FE50080A0E1"
+    },
+    {
+      "name": "ui.setting.logout",
+      "rva": "0x110eeec",
+      "prologue": "F04B2DE910D04DE210419FE50080A0E1"
+    },
+    {
+      "name": "ui.setting.restore",
+      "rva": "0x110e88c",
+      "prologue": "30482DE9E4509FE50040A0E105508FE0"
+    },
+    {
+      "name": "ui.setting.help",
+      "rva": "0x11139e4",
+      "prologue": "30482DE9F8509FE50040A0E105508FE0"
+    },
+    {
+      "name": "ui.setting.privacy",
+      "rva": "0x1112318",
+      "prologue": "10402DE90000A0E35B3812EB0040A0E1"
+    },
+    {
+      "name": "prefs.setInt",
+      "rva": "0x32c7e04",
+      "prologue": "10402DE910FEFFEB000050E31080BD18"
+    },
+    {
+      "name": "prefs.getInt",
+      "rva": "0x32c7e68",
+      "prologue": "70402DE918D04DE2B4619FE50050A0E1"
+    },
+    {
+      "name": "prefs.setFloat",
+      "rva": "0x32c80ac",
+      "prologue": "10402DE9F5FDFFEB000050E31080BD18"
+    },
+    {
+      "name": "prefs.getFloat",
+      "rva": "0x32c8110",
+      "prologue": "70402DE9028B2DED18D04DE2BC619FE5"
+    },
+    {
+      "name": "prefs.setString",
+      "rva": "0x32c8360",
+      "prologue": "10402DE9D7FDFFEB000050E31080BD18"
+    },
+    {
+      "name": "prefs.getString",
+      "rva": "0x32c83c4",
+      "prologue": "F0472DE958D04DE20C439FE50060A0E1"
+    },
+    {
+      "name": "prefs.hasKey",
+      "rva": "0x32c87c0",
+      "prologue": "30482DE918D04DE2AC519FE50040A0E1"
+    },
+    {
+      "name": "prefs.deleteKey",
+      "rva": "0x32c89ec",
+      "prologue": "30482DE918D04DE2A0519FE50040A0E1"
+    },
+    {
+      "name": "prefs.deleteAll",
+      "rva": "0x32c8c0c",
+      "prologue": "30009FE500009FE7000050E30000000A"
+    }
+  ],
+  "il2cppDependencies": [
+    {
+      "name": "pmang.commitLocalMembership",
+      "rva": "0x111a3b8",
+      "prologue": "F0412DE90080A0E10000A0E30350A0E1"
+    },
+    {
+      "name": "pmang.isLoggedIn",
+      "rva": "0x111b080",
+      "prologue": "00482DE9180090E50010A0E3DA345EEB"
+    },
+    {
+      "name": "gameplay.save.manager",
+      "rva": "0x15aa9e0",
+      "prologue": "10402DE95C409FE504408FE00000D4E5"
+    },
+    {
+      "name": "gameplay.save.upload",
+      "rva": "0x1400f80",
+      "prologue": "F0472DE910D04DE2B8419FE50070A0E1"
+    },
+    {
+      "name": "gameplay.table.instance",
+      "rva": "0x15a06b0",
+      "prologue": "10402DE95C409FE504408FE00000D4E5"
+    },
+    {
+      "name": "request.setHeader",
+      "rva": "0x367c4e8",
+      "prologue": "70402DE90060A0E10150A0E10100A0E1"
+    },
+    {
+      "name": "request.getUrl",
+      "rva": "0x367b930",
+      "prologue": "FFFFFFEAF0482DE918D04DE20C708DE2"
+    },
+    {
+      "name": "billing.doServerPurchase",
+      "rva": "0x15f7230",
+      "prologue": "F0412DE920D04DE218629FE50050A0E1"
+    },
+    {
+      "name": "notice.requestUpdateTime",
+      "rva": "0xfaecec",
+      "prologue": "F04B2DE908D04DE2B4519FE50040A0E1"
+    },
+    {
+      "name": "ui.mailbox.requestPostTime",
+      "rva": "0x16149d8",
+      "prologue": "F0482DE910D04DE274519FE50040A0E1"
+    }
+  ],
+  "il2cppFields": {
+    "sdk.firebase.initialized": "0x14",
+    "sdk.googleAds.initialized": "0x39",
+    "sdk.appsflyer.initialized": "0x12",
+    "notice.maintenance.code": "0x8",
+    "offline.minSeconds": "0x10",
+    "offline.maxSeconds": "0x14",
+    "offline.startTicks": "0x20",
+    "offline.elapsedTicks": "0x28",
+    "table.initialized": "0x25",
+    "table.music": "0x8c",
+    "table.costume": "0x7c",
+    "table.adLevel": "0x11c",
+    "music.master": "0x84",
+    "pass.window.endTicks": "0x30",
+    "quest.response.received1": "0x38",
+    "setting.language.ko": "0x60",
+    "setting.language.en": "0x64",
+    "setting.language.ja": "0x68",
+    "setting.language.zh-Hans": "0x6c",
+    "setting.language.zh-Hant": "0x70",
+    "setting.language.vi": "0x74",
+    "setting.language.es": "0x78",
+    "setting.language.it": "0x7c",
+    "setting.language.id": "0x80",
+    "setting.language.th": "0x84",
+    "setting.language.pt": "0x88",
+    "setting.language.hi": "0x8c",
+    "setting.row.auth.onlineParent": "0xe0",
+    "setting.row.auth.online": "0xe4",
+    "setting.row.auth.logoutOnline": "0xe8",
+    "setting.row.auth.offlineParent": "0xec",
+    "setting.row.auth.offline": "0xf0",
+    "setting.row.auth.logoutOffline": "0xf4",
+    "setting.row.restore.online": "0xfc",
+    "setting.row.restore.offline": "0x104",
+    "setting.row.help.online": "0x108",
+    "setting.row.help.offline": "0x10c",
+    "setting.row.privacy.online": "0x110",
+    "setting.row.privacy.offline": "0x114",
+    "toggle.active": "0x4c"
+  },
+  "manifestTransforms": {
+    "disableComponentsWithPrefixes": [
+      "com.google.firebase.",
+      "com.google.android.gms.games.",
+      "com.android.billingclient.",
+      "com.facebook.",
+      "com.appsflyer."
+    ],
+    "rewritePackageBoundAuthorities": true,
+    "rewritePackageBoundPermissions": true,
+    "injectBootstrapProvider": true
+  },
+  "failClosed": true,
+  "experimental": true,
+  "releaseReady": false
+}

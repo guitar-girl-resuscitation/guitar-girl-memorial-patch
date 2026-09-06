@@ -19,6 +19,23 @@
 
 namespace ggfm {
 namespace {
+#include "ggfm/generated_hook_targets.inc"
+
+constexpr std::uintptr_t RuntimeField(std::string_view name) {
+  for (const auto& field : kGeneratedFieldOffsets) {
+    if (field.name == name) return field.offset;
+  }
+  return 0;
+}
+static_assert(RuntimeField("sdk.firebase.initialized") != 0);
+static_assert(RuntimeField("sdk.googleAds.initialized") != 0);
+static_assert(RuntimeField("sdk.appsflyer.initialized") != 0);
+static_assert(RuntimeField("notice.maintenance.code") != 0);
+static_assert(RuntimeField("offline.minSeconds") != 0);
+static_assert(RuntimeField("offline.maxSeconds") != 0);
+static_assert(RuntimeField("offline.startTicks") != 0);
+static_assert(RuntimeField("offline.elapsedTicks") != 0);
+
 struct Il2CppString {
   void* klass;
   void* monitor;
@@ -47,7 +64,6 @@ using SetString = void (*)(Il2CppString*, Il2CppString*, const void*);
 using GetString = Il2CppString* (*)(Il2CppString*, Il2CppString*, const void*);
 using HasKey = bool (*)(Il2CppString*, const void*);
 using DeleteKey = void (*)(Il2CppString*, const void*);
-using VoidStatic = void (*)(const void*);
 using ObjectGetClass = void* (*)(void*);
 using ClassGetMethod = const void* (*)(void*, const char*, int);
 using ClassGetField = void* (*)(void*, const char*);
@@ -69,7 +85,6 @@ SetString original_set_string = nullptr;
 GetString original_get_string = nullptr;
 HasKey original_has_key = nullptr;
 DeleteKey original_delete_key = nullptr;
-VoidStatic original_save = nullptr;
 ObjectGetClass object_get_class = nullptr;
 ClassGetMethod class_get_method = nullptr;
 ClassGetField class_get_field = nullptr;
@@ -92,10 +107,10 @@ void LogOfflineState(const char* phase, void* instance) {
   std::int32_t minimum = 0, maximum = 0;
   std::int64_t start = 0, elapsed = 0;
   const auto* bytes = static_cast<const char*>(instance);
-  std::memcpy(&minimum, bytes + 0x20, sizeof(minimum));
-  std::memcpy(&maximum, bytes + 0x24, sizeof(maximum));
-  std::memcpy(&start, bytes + 0x30, sizeof(start));
-  std::memcpy(&elapsed, bytes + 0x38, sizeof(elapsed));
+  std::memcpy(&minimum, bytes + RuntimeField("offline.minSeconds"), sizeof(minimum));
+  std::memcpy(&maximum, bytes + RuntimeField("offline.maxSeconds"), sizeof(maximum));
+  std::memcpy(&start, bytes + RuntimeField("offline.startTicks"), sizeof(start));
+  std::memcpy(&elapsed, bytes + RuntimeField("offline.elapsedTicks"), sizeof(elapsed));
   __android_log_print(ANDROID_LOG_INFO, "GGFM",
       "offline: %s min_seconds=%d max_seconds=%d start_ticks=%lld elapsed_ticks=%lld",
       phase, minimum, maximum, static_cast<long long>(start), static_cast<long long>(elapsed));
@@ -281,7 +296,9 @@ void DeleteAllHook(const void*) {
   // A global delete would erase every slot. Slot deletion is implemented by
   // the memorial save manager, which enumerates only its USN prefix.
 }
-void SaveHook(const void* method) { original_save(method); }
+// PlayerPrefs.Save remains native: key isolation is performed by the read/write
+// hooks. A forwarding-only hook adds no behavior and needlessly relocates the
+// ARMv7 internal-call resolver's PC-relative loads.
 
 void RewardedAdHook(std::int32_t, void* on_success, void*, const void*) {
   InvokeDelegate(on_success, nullptr, 0);
@@ -389,7 +406,7 @@ void FirebaseManagerInitializeHook(void* manager, const void*) {
   // completion bit needs to be committed here.
   if (manager != nullptr) {
     *reinterpret_cast<std::uint8_t*>(
-        reinterpret_cast<std::uintptr_t>(manager) + 0x24) = 1;
+        reinterpret_cast<std::uintptr_t>(manager) + RuntimeField("sdk.firebase.initialized")) = 1;
   }
   __android_log_print(ANDROID_LOG_INFO, "GGFM",
                       "runtime: retired Firebase manager satisfied locally");
@@ -414,7 +431,7 @@ void GoogleMobileAdsManagerInitializeHook(void* manager, const void*) {
   // the client-side lifecycle without starting the remote SDK.
   if (manager != nullptr) {
     *reinterpret_cast<std::uint8_t*>(
-        reinterpret_cast<std::uintptr_t>(manager) + 0x69) = 1;
+        reinterpret_cast<std::uintptr_t>(manager) + RuntimeField("sdk.googleAds.initialized")) = 1;
   }
   __android_log_print(ANDROID_LOG_INFO, "GGFM",
                       "runtime: retired Google Mobile Ads manager satisfied locally");
@@ -425,7 +442,7 @@ void AppsFlyerManagerInitializeHook(void* manager, const void*) {
   // completion bit while keeping the retired attribution SDK offline.
   if (manager != nullptr) {
     *reinterpret_cast<std::uint8_t*>(
-        reinterpret_cast<std::uintptr_t>(manager) + 0x22) = 1;
+        reinterpret_cast<std::uintptr_t>(manager) + RuntimeField("sdk.appsflyer.initialized")) = 1;
   }
   __android_log_print(ANDROID_LOG_INFO, "GGFM",
                       "runtime: retired AppsFlyer manager satisfied locally");
@@ -441,7 +458,7 @@ Il2CppString* LoadNoticeDontShowDayHook(void*, const void*) {
 std::int16_t MaintenanceCode(const void* maintenance) {
   if (maintenance == nullptr) return 0;
   return *reinterpret_cast<const std::int16_t*>(
-      reinterpret_cast<std::uintptr_t>(maintenance) + 0x10);
+      reinterpret_cast<std::uintptr_t>(maintenance) + RuntimeField("notice.maintenance.code"));
 }
 
 bool ContinueAfterMemorialNoticeObject(void* instance, void* request,
@@ -591,11 +608,9 @@ HookBinding Resolve(const std::string_view name) {
   if (name == "prefs.hasKey") return {reinterpret_cast<void*>(HasKeyHook), reinterpret_cast<void**>(&original_has_key)};
   if (name == "prefs.deleteKey") return {reinterpret_cast<void*>(DeleteKeyHook), reinterpret_cast<void**>(&original_delete_key)};
   if (name == "prefs.deleteAll") return {reinterpret_cast<void*>(DeleteAllHook), nullptr};
-  if (name == "prefs.save") return {reinterpret_cast<void*>(SaveHook), reinterpret_cast<void**>(&original_save)};
   return {nullptr, nullptr};
 }
 
-#include "ggfm/generated_hook_targets.inc"
 
 const FingerprintTarget* Dependency(const std::string_view name) {
   for (const auto& dependency : kGeneratedDependencies) {

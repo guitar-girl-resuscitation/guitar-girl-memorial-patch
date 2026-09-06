@@ -18,7 +18,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
         with:
@@ -51,6 +51,13 @@ jobs:
         run: python tools/build_runtime.py --sdk "$ANDROID_HOME" --java-home "$JAVA_HOME" --server-tag "$SERVER_TAG"
       - name: Package only original runtime and licensed dependency
         run: python tools/release_artifacts.py pack --kind patch-android-arm64 --file classes.dex=build/release-runtime/classes.dex --file libggfm_bootstrap.so=build/release-runtime/libggfm_bootstrap.so --file libdobby.so=build/release-runtime/libdobby.so --file libggfm_server.so=build/release-runtime/libggfm_server.so --file THIRD_PARTY_TERMINAL_FONT.md=build/release-runtime/THIRD_PARTY_TERMINAL_FONT.md --file memorial-policy.v1.json=policy/memorial-policy.v1.json --file DOBBY-LICENSE=build/release-runtime/DOBBY-LICENSE --file dependencies.json=build/release-runtime/dependencies.json
+      - name: Build ARMv7 runtime sequentially
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SERVER_TAG: ${{ inputs.server_tag || 'nightly' }}
+        run: python tools/build_runtime.py --sdk "$ANDROID_HOME" --java-home "$JAVA_HOME" --server-tag "$SERVER_TAG" --abi armeabi-v7a --output build/release-runtime-armv7
+      - name: Package ARMv7 runtime separately
+        run: python tools/release_artifacts.py pack --kind patch-android-armv7 --file classes.dex=build/release-runtime-armv7/classes.dex --file libggfm_bootstrap.so=build/release-runtime-armv7/libggfm_bootstrap.so --file libdobby.so=build/release-runtime-armv7/libdobby.so --file libggfm_server.so=build/release-runtime-armv7/libggfm_server.so --file THIRD_PARTY_TERMINAL_FONT.md=build/release-runtime-armv7/THIRD_PARTY_TERMINAL_FONT.md --file memorial-policy.v1.json=policy/memorial-policy.v1.json --file DOBBY-LICENSE=build/release-runtime-armv7/DOBBY-LICENSE --file dependencies.json=build/release-runtime-armv7/dependencies.json
       - uses: actions/upload-artifact@v4
         with:
           name: patch-release
