@@ -90,9 +90,16 @@
     {"name":"prefs.getString","rva":"0x3ADA478","prologue":"FF4303D1FE570BA9F44F0CA9B53E00F0"},
     {"name":"prefs.hasKey","rva":"0x3ADA7C4","prologue":"FF4301D1FE1B00F9F44F04A9B43E00F0"},
     {"name":"prefs.deleteKey","rva":"0x3ADA974","prologue":"FF4301D1FE1B00F9F44F04A9B43E00F0"},
-    {"name":"prefs.deleteAll","rva":"0x3ADAB18","prologue":"FE4FBFA9B33E00F060EA41F9A00000B5"}
+    {"name":"prefs.deleteAll","rva":"0x3ADAB18","prologue":"FE4FBFA9B33E00F060EA41F9A00000B5"},
+    {"name":"ui.popupEndScale","rva":"0x21D8218","prologue":"E80300AA001C40F91FC50039A00000B4"},
+    {"name":"ui.popupWaitOpen","rva":"0x21D8854","prologue":"E80F1DFCFE5701A9F44F02A9740601F0"},
+    {"name":"ui.shop.confirm","rva":"0x1D4B4E0","prologue":"FE4FBFA9F30300AAE0031FAAB24D1194"},
+    {"name":"ui.shopDetail.confirm","rva":"0x228FC80","prologue":"FE4FBFA9F30300AAE0031FAACA3BFC97"},
+    {"name":"ui.infoFanCostume.confirm","rva":"0x211A238","prologue":"FE4FBFA9F30300AAE0031FAA5C120294"},
+    {"name":"ui.unlockFanCostume.confirm","rva":"0x1CCE764","prologue":"FE4FBFA9F30300AAE0031FAA11411394"}
   ],
   "il2cppDependencies": [
+    {"name":"ui.popupBase.confirm","rva":"0x1B8E0A0","prologue":"FE4FBFA9011C40F9F30300AA010C03F8"},
     {"name":"pmang.commitLocalMembership","rva":"0x1E217D0","prologue":"FE5FBDA9F65701A9F44F02A9F30300AA"},
     {"name":"pmang.isLoggedIn","rva":"0x1E22254","prologue":"FE0F1FF8001840F9E1031FAAE8CB5194"},
     {"name":"gameplay.save.manager","rva":"0x21A6B94","prologue":"FE0F1EF8F44F01A9140801B0B3F000B0"},
@@ -105,6 +112,11 @@
     {"name":"ui.mailbox.requestPostTime","rva":"0x21F6E40","prologue":"FE67BCA9F85F01A9F65702A9F44F03A9"}
   ],
   "il2cppFields": {
+    "popup.openCallback":"0x20",
+    "popup.closing":"0x32",
+    "popup.waitState":"0x10",
+    "popup.waitOwner":"0x28",
+    "popup.managerState":"0x20",
     "sdk.firebase.initialized":"0x24",
     "sdk.googleAds.initialized":"0x69",
     "sdk.appsflyer.initialized":"0x22",

@@ -363,9 +363,24 @@
       "name": "prefs.deleteAll",
       "rva": "0x32c8c0c",
       "prologue": "30009FE500009FE7000050E30000000A"
-    }
+    },
+    {
+      "name": "ui.popupEndScale",
+      "rva": "0x15ECC5C",
+      "prologue": "10402DE91C4090E50010A0E31910C0E5"
+    },
+    {
+      "name": "ui.popupWaitOpen",
+      "rva": "0x15ED42C",
+      "prologue": "F0412DE9028B2DED08D04DE24C529FE5"
+    },
+    {"name":"ui.shop.confirm","rva":"0x100834C","prologue":"30482DE90040A0E10000A0E34D6016EB"},
+    {"name":"ui.shopDetail.confirm","rva":"0x16DBAEC","prologue":"30482DE90040A0E10000A0E36512FBEB"},
+    {"name":"ui.infoFanCostume.confirm","rva":"0x14F0AE4","prologue":"30482DE90040A0E10000A0E367BE02EB"},
+    {"name":"ui.unlockFanCostume.confirm","rva":"0xF69FF8","prologue":"30482DE90040A0E10000A0E322D918EB"}
   ],
   "il2cppDependencies": [
+    {"name":"ui.popupBase.confirm","rva":"0xDCFC80","prologue":"10402DE91C1090E50040A0E11810A0E5"},
     {
       "name": "pmang.commitLocalMembership",
       "rva": "0x111a3b8",
@@ -418,6 +433,11 @@
     }
   ],
   "il2cppFields": {
+    "popup.openCallback": "0x10",
+    "popup.closing": "0x1A",
+    "popup.waitState": "0x8",
+    "popup.waitOwner": "0x14",
+    "popup.managerState": "0x10",
     "sdk.firebase.initialized": "0x14",
     "sdk.googleAds.initialized": "0x39",
     "sdk.appsflyer.initialized": "0x12",

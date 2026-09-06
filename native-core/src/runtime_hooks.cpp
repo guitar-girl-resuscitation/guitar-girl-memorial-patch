@@ -5,6 +5,7 @@
 #include "ggfm/gameplay_compat.hpp"
 #include "ggfm/admin_bridge.hpp"
 #include "ggfm/offline_sdk.hpp"
+#include "ggfm/popup_completion.hpp"
 
 #include <android/log.h>
 #include <dlfcn.h>
@@ -35,6 +36,11 @@ static_assert(RuntimeField("offline.minSeconds") != 0);
 static_assert(RuntimeField("offline.maxSeconds") != 0);
 static_assert(RuntimeField("offline.startTicks") != 0);
 static_assert(RuntimeField("offline.elapsedTicks") != 0);
+static_assert(RuntimeField("popup.openCallback") != 0);
+static_assert(RuntimeField("popup.closing") != 0);
+static_assert(RuntimeField("popup.waitState") != 0);
+static_assert(RuntimeField("popup.waitOwner") != 0);
+static_assert(RuntimeField("popup.managerState") != 0);
 
 struct Il2CppString {
   void* klass;
@@ -51,6 +57,7 @@ std::uintptr_t set_header_address = 0;
 std::uintptr_t get_url_address = 0;
 std::uintptr_t do_server_purchase_address = 0;
 std::uintptr_t request_update_time_address = 0;
+std::uintptr_t popup_base_confirm_address = 0;
 
 using UrlGetter = Il2CppString* (*)(void*, const void*);
 using SendRequest = void* (*)(void*, const void*);
@@ -74,8 +81,16 @@ using RuntimeInvoke = void* (*)(const void*, void*, void**, void**);
 using MaintenanceHandler = bool (*)(void*, void*, void*, const void*);
 using MaintenancePopup = void (*)(void*, void**, void*, void*, const void*);
 using ManagedTransition = void (*)(void*, const void*);
+using PopupWait = bool (*)(void*, const void*);
+using WriteBarrier = void (*)(void*, void**, void*);
+WeakHandleNew popup_retain = nullptr;  // Same ABI, loaded from the STRONG export.
+HandleTarget popup_target = nullptr;
+HandleFree popup_release = nullptr;
+WriteBarrier popup_clear = nullptr;
 
 UrlGetter unused_url_original = nullptr;
+ManagedTransition original_popup_end_scale = nullptr;
+PopupWait original_popup_wait = nullptr;
 SendRequest original_send = nullptr;
 SetInt original_set_int = nullptr;
 GetInt original_get_int = nullptr;
@@ -370,6 +385,42 @@ void PmangMembershipLoginHook(void* manager, void* on_success, void* on_failure,
   InvokeDelegate(ready ? on_success : on_failure, nullptr, 0);
 }
 
+void PopupConfirmHook(void* popup, const void*) {
+  auto* state = reinterpret_cast<std::int32_t*>(
+      static_cast<std::uint8_t*>(popup) + RuntimeField("popup.managerState"));
+  if (!BeginPopupConfirmation(*state)) return;
+  // These four audited overrides contain ONLY the global one-second debounce
+  // followed by Base.OnUIEventOK. A row click must not debounce its NEW dialog.
+  // Keep the stock close callback / reward / request flow, guarded per popup.
+  __android_log_print(ANDROID_LOG_INFO, "GGFM", "popup: confirm accepted popup=%p", popup);
+  reinterpret_cast<ManagedTransition>(popup_base_confirm_address)(popup, nullptr);
+}
+
+void PopupEndScaleHook(void* animation, const void* method) {
+  // First let the client clear its animation-busy flag and settle panel alpha.
+  // Allowing input from Open itself would leave Close/ClosePopup unable to run.
+  original_popup_end_scale(animation, method);
+  auto* bytes = static_cast<std::uint8_t*>(animation);
+  auto** callback = reinterpret_cast<void**>(bytes + RuntimeField("popup.openCallback"));
+  __android_log_print(ANDROID_LOG_INFO, "GGFM", "popup: scale complete animator=%p callback=%d closing=%d",
+                      animation, *callback != nullptr, bytes[RuntimeField("popup.closing")] != 0);
+  const PopupCompletionApi api{popup_retain, popup_target, popup_release, popup_clear,
+    +[](void* action) { return InvokeDelegate(action, nullptr, 0); }};
+  if (!CompletePopupOnce(animation, callback, bytes[RuntimeField("popup.closing")] != 0, api)) {
+    __android_log_print(ANDROID_LOG_ERROR, "GGFM", "popup: animation completion callback failed");
+  }
+}
+
+bool PopupWaitHook(void* coroutine, const void* method) {
+  auto* state = reinterpret_cast<std::int32_t*>(
+      static_cast<std::uint8_t*>(coroutine) + RuntimeField("popup.waitState"));
+  auto* owner = *reinterpret_cast<void**>(
+      static_cast<std::uint8_t*>(coroutine) + RuntimeField("popup.waitOwner"));
+  __android_log_print(ANDROID_LOG_INFO, "GGFM", "popup: wait animator=%p state=%d", owner, *state);
+  if (FinishPopupDelayedCallback(*state)) return false;
+  return original_popup_wait(coroutine, method);
+}
+
 void DoStorePurchaseHook(void* manager, void* purchase_data, const void*) {
   using DoServerPurchase = void (*)(void*, void*, const void*);
   reinterpret_cast<DoServerPurchase>(do_server_purchase_address)(
@@ -564,6 +615,15 @@ HookBinding Resolve(const std::string_view name) {
     return {reinterpret_cast<void*>(NoReadyAdHook), nullptr};
   if (name == "billing.doStorePurchase")
     return {reinterpret_cast<void*>(DoStorePurchaseHook), nullptr};
+  if (name == "ui.popupEndScale")
+    return {reinterpret_cast<void*>(PopupEndScaleHook),
+            reinterpret_cast<void**>(&original_popup_end_scale)};
+  if (name == "ui.popupWaitOpen")
+    return {reinterpret_cast<void*>(PopupWaitHook),
+            reinterpret_cast<void**>(&original_popup_wait)};
+  if (name == "ui.shop.confirm" || name == "ui.shopDetail.confirm" ||
+      name == "ui.infoFanCostume.confirm" || name == "ui.unlockFanCostume.confirm")
+    return {reinterpret_cast<void*>(PopupConfirmHook), nullptr};
   if (name == "billing.pendingPlatformOrders")
     return {reinterpret_cast<void*>(RetryPendingPlatformOrdersHook), nullptr};
   if (name == "firebase.managerInitialize")
@@ -641,10 +701,19 @@ bool InstallRuntimeHooks(HookBackend& backend, const std::uintptr_t il2cpp_base,
   object_unbox = reinterpret_cast<ObjectUnbox>(dlsym(symbol_scope, "il2cpp_object_unbox"));
   runtime_invoke = reinterpret_cast<RuntimeInvoke>(
       dlsym(symbol_scope, "il2cpp_runtime_invoke"));
+  popup_retain = reinterpret_cast<WeakHandleNew>(dlsym(symbol_scope, "il2cpp_gchandle_new"));
+  popup_target = reinterpret_cast<HandleTarget>(dlsym(symbol_scope, "il2cpp_gchandle_get_target"));
+  popup_release = reinterpret_cast<HandleFree>(dlsym(symbol_scope, "il2cpp_gchandle_free"));
+  popup_clear = reinterpret_cast<WriteBarrier>(dlsym(symbol_scope, "il2cpp_gc_wbarrier_set_field"));
+  if (!popup_retain || !popup_target || !popup_release || !popup_clear) {
+    __android_log_print(ANDROID_LOG_ERROR, "GGFM", "popup: required GC APIs unavailable");
+    return false;
+  }
   const auto* set_header = Dependency("request.setHeader");
   const auto* get_url = Dependency("request.getUrl");
   const auto* do_server_purchase = Dependency("billing.doServerPurchase");
   const auto* request_update_time = Dependency("notice.requestUpdateTime");
+  const auto* popup_base_confirm = Dependency("ui.popupBase.confirm");
   if (string_new == nullptr || string_new_utf16 == nullptr ||
       object_get_class == nullptr || class_get_method == nullptr ||
       runtime_invoke == nullptr || class_get_field == nullptr || field_set_value == nullptr ||
@@ -655,7 +724,7 @@ bool InstallRuntimeHooks(HookBackend& backend, const std::uintptr_t il2cpp_base,
   }
   if (!firebase_only_diagnostic &&
       (set_header == nullptr || get_url == nullptr ||
-       do_server_purchase == nullptr || request_update_time == nullptr)) {
+       do_server_purchase == nullptr || request_update_time == nullptr || popup_base_confirm == nullptr)) {
     __android_log_print(ANDROID_LOG_ERROR, "GGFM",
                         "runtime: required dependency target is absent");
     return false;
@@ -693,6 +762,7 @@ bool InstallRuntimeHooks(HookBackend& backend, const std::uintptr_t il2cpp_base,
   get_url_address = il2cpp_base + get_url->rva;
   do_server_purchase_address = il2cpp_base + do_server_purchase->rva;
   request_update_time_address = il2cpp_base + request_update_time->rva;
+  popup_base_confirm_address = il2cpp_base + popup_base_confirm->rva;
   if (!InitializeGameplayCompatibility(il2cpp_base)) return false;
   return InstallHooks(backend, il2cpp_base, kGeneratedHookTargets, Resolve);
 }
