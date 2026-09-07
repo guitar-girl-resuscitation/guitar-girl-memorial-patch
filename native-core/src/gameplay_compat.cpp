@@ -50,14 +50,19 @@ static_assert(Field("upgrade.unitDto.increment") != 0);
 
 void RestoreMasterIncrement(void* row, void* dto, std::string_view kind,
                             std::uintptr_t source_offset) {
-  // Stock RPC constructors truncate double -> int -> float. The SQL reader
-  // already preserves float values. Repair just this field after the original
+  // Stock RPC constructors truncate double -> int -> float. SQL and binary
+  // cache readers preserve their stored float (including an old cached zero).
+  // Repair just this field after the original
   // constructor, using the game's value constructor (including its state).
   const bool restored = RestoreUpgradeIncrement(row, dto, source_offset,
       Field("upgrade.row.increment"), encode_upgrade_float);
-  __android_log_print(restored ? ANDROID_LOG_DEBUG : ANDROID_LOG_ERROR, "GGFM",
-      "master: %.*s fractional upgrade increment restored=%d",
-      static_cast<int>(kind.size()), kind.data(), restored);
+  double source_increment = 0;
+  if (dto != nullptr)
+    std::memcpy(&source_increment, static_cast<char*>(dto) + source_offset, sizeof(source_increment));
+  __android_log_print(restored ? ANDROID_LOG_INFO : ANDROID_LOG_ERROR, "GGFM",
+      "master: %.*s RPC upgrade increment source=%.9g float32=%.9g written=%d",
+      static_cast<int>(kind.size()), kind.data(), source_increment,
+      static_cast<double>(static_cast<float>(source_increment)), restored);
 }
 
 void SkillConstructor(void* row, void* dto, const void* method) {
