@@ -143,10 +143,15 @@ void DailyPassWindow(void* instance, int year, int group_count, const void* meth
   const auto context = GetRequestContext();
   const auto now = std::chrono::duration_cast<std::chrono::seconds>(
       std::chrono::system_clock::now().time_since_epoch()).count();
-  // Stock SetWindow builds an Unspecified DateTime (wall time, no kind bits).
-  // Keep the server-selected row/season; replace only its month-end deadline.
-  const auto ticks = LocalDayEndTicks(now, context.utc_offset_minutes);
-  std::memcpy(static_cast<char*>(instance) + kPassEnd, &ticks, sizeof(ticks));
+  // Both adjacent DateTime fields use the stock UTC+9 comparison clock, not
+  // device wall time. Leave the selected season and active flag unchanged.
+  const auto start = PassDayStartTicks(now, context.utc_offset_minutes);
+  const auto end = PassDayEndTicks(now, context.utc_offset_minutes);
+  std::memcpy(static_cast<char*>(instance) + kPassEnd - sizeof(start), &start, sizeof(start));
+  std::memcpy(static_cast<char*>(instance) + kPassEnd, &end, sizeof(end));
+  __android_log_print(ANDROID_LOG_INFO, "GGFM",
+      "pass: daily window offset=%d start=%lld end=%lld (stock UTC+9 ticks)",
+      context.utc_offset_minutes, static_cast<long long>(start), static_cast<long long>(end));
 }
 
 void RestoreQuestClaims(void* instance, void* response, const void* method) {

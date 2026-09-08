@@ -65,6 +65,27 @@ int main() {
   static_assert(ggfm::LocalDayEndTicks(23 * 3600, 120) ==
                 ggfm::LocalDayEndTicks(86400, 0));
   static_assert(ggfm::LocalDayEndTicks(0, -60) == epoch_ticks - 10000000LL);
+  // Reproducer: 18:00 UTC is 13:00 UTC-5, but the game's clock is already
+  // 03:00 the next day. An unconverted local deadline incorrectly hides Pass.
+  static_assert(ggfm::LocalDayEndTicks(18 * 3600, -300) <
+                epoch_ticks + 27LL * 3600 * 10000000LL);
+  static_assert(ggfm::PassDayEndTicks(18 * 3600, -300) >
+                epoch_ticks + 27LL * 3600 * 10000000LL);
+  for (const int offset : {-720, -360, -300, -210, 0, 330, 540, 600, 840}) {
+    // Include pre-epoch, month/year boundaries, and every hour on either side
+    // of midnight. At every instant the selected day's window includes NOW.
+    for (const std::int64_t anchor : {-86400LL, 0LL, 1798761600LL}) {
+      for (int hour = -24; hour <= 48; ++hour) {
+        const auto now = anchor + hour * 3600 + 17;
+        const auto clock = epoch_ticks + (now + 9 * 3600) * 10000000LL;
+        const auto start = ggfm::PassDayStartTicks(now, offset);
+        const auto end = ggfm::PassDayEndTicks(now, offset);
+        if (clock < start || clock > end || end - start != 86399LL * 10000000LL) return 16;
+        const auto next = (end - epoch_ticks) / 10000000LL - 9 * 3600 + 1;
+        if (ggfm::PassDayStartTicks(next, offset) != end + 10000000LL) return 17;
+      }
+    }
+  }
   ggfm::QuestClaimProjection claims;
   claims.Update(1, {1, 0, 1});
   if (claims.State(1, 1, 0) != 2 || claims.State(1, 2, 1) != 1 ||
