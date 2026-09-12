@@ -325,6 +325,25 @@ void NoReadyAdHook(void*, std::int32_t, void* on_success, void*, const void*) {
   InvokeDelegate(on_success, nullptr, 0);
 }
 
+void RequestAndLoadRewardedAdHook(void*, const void*) {
+  // ⚠ CRASH FIX. GoogleMobileAdsManagerSGT.OnRewardedAdFailedToLoad calls
+  // RequestAndLoadRewardedAd straight back, with no backoff. The ad service is retired, so
+  // every load fails immediately and the pair spins: measured at ~1,700 loads per second on
+  // 2026-09-12, which leaked 10,265 com.google.unity.ads.UnityRewardedAd JNI GLOBAL
+  // references in about six seconds and aborted the runtime with
+  // "JNI ERROR (app bug): global reference table overflow (max=51200)".
+  //
+  // Loading is pointless here in any case: ads.requestAndShow and ads.noReady already grant
+  // the reward locally, so nothing needs a real RewardedAd object. Creating none at all also
+  // skips the stock Destroy/Load pair this method performs.
+  static std::atomic<std::uint32_t> suppressed{0};
+  const auto count = suppressed.fetch_add(1, std::memory_order_relaxed) + 1;
+  if (count <= 3 || count % 100 == 0) {
+    __android_log_print(ANDROID_LOG_INFO, "GGFM",
+                        "runtime: retired rewarded-ad load suppressed (#%u)", count);
+  }
+}
+
 bool InstallLocalMembership(void* manager) {
   const auto fail = [](const char* stage) {
     __android_log_print(ANDROID_LOG_ERROR, "GGFM", "identity: local membership failed stage=%s", stage);
@@ -613,6 +632,8 @@ HookBinding Resolve(const std::string_view name) {
     return {reinterpret_cast<void*>(RewardedAdHook), nullptr};
   if (name == "ads.noReady")
     return {reinterpret_cast<void*>(NoReadyAdHook), nullptr};
+  if (name == "ads.requestAndLoad")
+    return {reinterpret_cast<void*>(RequestAndLoadRewardedAdHook), nullptr};
   if (name == "billing.doStorePurchase")
     return {reinterpret_cast<void*>(DoStorePurchaseHook), nullptr};
   if (name == "ui.popupEndScale")

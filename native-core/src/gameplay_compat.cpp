@@ -2,6 +2,8 @@
 #include "ggfm/client_save.hpp"
 #include "ggfm/gameplay_rules.hpp"
 #include "ggfm/upgrade_increment.hpp"
+#include "ggfm/follower_row_cache.hpp"
+#include "ggfm/fan_multiplier_cache.hpp"
 #include "ggfm/runtime.hpp"
 
 #include <array>
@@ -180,7 +182,8 @@ bool InitializeGameplayCompatibility(const std::uintptr_t il2cpp_base) {
       get_table = reinterpret_cast<GetTable>(il2cpp_base + dependency.rva);
     }
   }
-  return get_table != nullptr && encode_upgrade_float != nullptr && InitializeClientSave(il2cpp_base);
+  return get_table != nullptr && encode_upgrade_float != nullptr && InitializeClientSave(il2cpp_base) &&
+         InitializeFanMultiplierCache(il2cpp_base);
 }
 
 HookBinding ResolveGameplayCompatibilityHook(std::string_view name) {
@@ -189,6 +192,8 @@ HookBinding ResolveGameplayCompatibilityHook(std::string_view name) {
   if (name == "gameplay.upgrade.unitConstructor")
     return {reinterpret_cast<void*>(UnitConstructor), reinterpret_cast<void**>(&original_unit_constructor)};
   if (name.starts_with("gameplay.save.")) return ResolveClientSaveHook(name);
+  if (name.starts_with("gameplay.followerRow")) return ResolveFollowerRowCacheHook(name);
+  if (name.starts_with("gameplay.fan.")) return ResolveFanMultiplierCacheHook(name);
   if (name == "gameplay.ch3.buyApGuard")
     return {reinterpret_cast<void*>(RetiredBuyApClick),
             reinterpret_cast<void**>(&original_buy_ap_click)};

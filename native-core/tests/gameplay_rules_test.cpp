@@ -86,6 +86,36 @@ int main() {
       }
     }
   }
+  {
+    ggfm::FanMultiplierMemo memo;
+    double value = 0;
+    if (memo.Find(1, 40, value)) return 30;                   // empty
+    memo.Store(1, 40, 2.5);
+    if (!memo.Find(1, 40, value) || value != 2.5) return 31;  // same level: reuse
+    if (memo.Find(1, 41, value)) return 32;                   // fans levelled: rebuild
+    if (memo.Find(2, 40, value)) return 33;                   // other area
+    memo.Store(99, 40, 9.0);
+    if (memo.Find(99, 40, value)) return 34;                  // out of range: never kept
+    memo.Store(1, 41, 3.0);
+    if (!memo.Find(1, 41, value) || value != 3.0 || memo.Find(1, 40, value)) return 35;
+    std::puts("PASS: fan multiplier is reused per area and rebuilt when the fan level moves");
+  }
+  {
+    using ggfm::RecomputeRowLabel;
+    constexpr std::int64_t second = 1'000'000'000;
+    const ggfm::RowLabelStamp seen{7, 3, 5, 10 * second};
+    if (!RecomputeRowLabel(false, seen, 7, 3, 5, 10 * second, 0)) return 20;          // new row
+    if (RecomputeRowLabel(true, seen, 7, 3, 5, 11 * second, 0)) return 21;            // tap: keep
+    if (!RecomputeRowLabel(true, seen, 8, 3, 5, 11 * second, 0)) return 22;           // recycled row
+    if (!RecomputeRowLabel(true, seen, 7, 4, 5, 11 * second, 11 * second)) return 23; // levelled
+    if (!RecomputeRowLabel(true, seen, 7, 3, 6, 11 * second, 11 * second)) return 24; // character
+    if (RecomputeRowLabel(true, seen, 7, 3, 5, 12 * second, 0)) return 25;            // 2 s: keep
+    if (!RecomputeRowLabel(true, seen, 7, 3, 5, 13 * second, 0)) return 26;           // expired
+    // Same dispatch: the previous row's recompute just ENDED, so this one waits.
+    if (RecomputeRowLabel(true, seen, 7, 3, 5, 13 * second, 13 * second - 1'000'000)) return 27;
+    if (!RecomputeRowLabel(true, seen, 7, 3, 5, 13 * second, 13 * second - 20'000'000)) return 28;
+    std::puts("PASS: follower row labels keep their text across taps, refresh on change");
+  }
   ggfm::QuestClaimProjection claims;
   claims.Update(1, {1, 0, 1});
   if (claims.State(1, 1, 0) != 2 || claims.State(1, 2, 1) != 1 ||

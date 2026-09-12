@@ -1,5 +1,6 @@
 #include "ggfm/client_save.hpp"
 #include "ggfm/runtime.hpp"
+#include "ggfm/follower_row_cache.hpp"
 
 #include <android/log.h>
 
@@ -36,6 +37,10 @@ void SaveSuccessfulUpgrade(const char* kind, int id, int count) {
 }
 
 bool UpgradeCharacter(void* manager, int id, int count, const void* method) {
+  // Before the upgrade: the stock level-up refreshes the follower rows from inside
+  // itself, so they must already see the change. A refused upgrade only costs one
+  // extra label recompute.
+  NotifyCharacterLevelChanged();
   return SaveAfterLocalSuccess(
       [&] { return original_character_upgrade(manager, id, count, method); },
       [&] { SaveSuccessfulUpgrade("character", id, count); });
@@ -43,6 +48,7 @@ bool UpgradeCharacter(void* manager, int id, int count, const void* method) {
 
 bool UpgradeFollower(void* manager, int id, int count, bool option1, bool option2,
                      const void* method) {
+  NotifyFollowerLevelChanged(id);  // before the upgrade; see UpgradeCharacter
   return SaveAfterLocalSuccess(
       [&] { return original_follower_upgrade(manager, id, count, option1, option2, method); },
       [&] { SaveSuccessfulUpgrade("follower", id, count); });
