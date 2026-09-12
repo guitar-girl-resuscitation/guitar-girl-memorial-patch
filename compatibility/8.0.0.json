@@ -37,6 +37,7 @@
     {"name":"gameplay.costume.load","rva":"0x1E3E824","prologue":"FF8303D1FD7B08A9FC6F09A9FA670AA9"},
     {"name":"gameplay.adLevel.load","rva":"0x2018138","prologue":"FFC301D1FE6703A9F85F04A9F65705A9"},
     {"name":"gameplay.pass.setWindow","rva":"0x219D080","prologue":"FE5FBDA9F65701A9F44F02A9560801D0"},
+    {"name":"gameplay.fan.multiplier","rva":"0x202C298","prologue":"E80F1EFCFE0700F9F44F01A9F303012A"},
     {"name":"gameplay.followerRow.likesLabel","rva":"0x1CC3178","prologue":"FE0F1DF8F65701A9F44F02A9142F01D0"},
     {"name":"gameplay.followerRow.enable","rva":"0x1CC3DDC","prologue":"FD7BBAA9FC6F01A9FA6702A9F85F03A9"},
     {"name":"gameplay.followerRow2.likesLabel","rva":"0x21851E8","prologue":"FE0F1DF8F65701A9F44F02A9140901D0"},
@@ -106,6 +107,7 @@
     {"name":"ui.unlockFanCostume.confirm","rva":"0x1CCE764","prologue":"FE4FBFA9F30300AAE0031FAA11411394"}
   ],
   "il2cppDependencies": [
+    {"name":"gameplay.fan.level","rva":"0x202C320","prologue":"FE4FBFA9E0031FAAF303012A8DCA0594"},
     {"name":"gameplay.upgrade.encodeFloat","rva":"0x1B15278","prologue":"E00308AA1F7D00A91F1100B9A34B0014"},
     {"name":"ui.popupBase.confirm","rva":"0x1B8E0A0","prologue":"FE4FBFA9011C40F9F30300AA010C03F8"},
     {"name":"pmang.commitLocalMembership","rva":"0x1E217D0","prologue":"FE5FBDA9F65701A9F44F02A9F30300AA"},

@@ -33,6 +33,37 @@ constexpr std::int64_t PassDayStartTicks(std::int64_t unix_seconds,
   return PassDayEndTicks(unix_seconds, utc_offset_minutes) - 86399LL * 10000000LL;
 }
 
+// --- Fan multiplier -----------------------------------------------------------
+// UserInfo's fan multiplier multiplies one Fan-table value per fan level, from 1 up to
+// the area's current level, and re-reads that level on every pass of the loop. It
+// costs ~14 ms at ~900k fans under ARM translation, and it runs 4 times in every
+// GgGameCoreMainManagerSGT.ComputeAll (once per production pass) plus once in every
+// follower row's Likes/sec label. ComputeAll runs on every level-up and three times
+// when a skill is activated, so one action cost 55-165 ms. The product depends only on the area and its fan level
+// (the Fan table never changes at runtime), so it is kept per area and rebuilt when
+// the level moves. The result is identical; it is never stale.
+struct FanMultiplierMemo {
+  struct Entry {
+    bool valid;
+    std::int32_t fan_level;
+    double multiplier;
+  };
+  std::array<Entry, 8> entries{};
+
+  constexpr bool Find(std::int32_t area, std::int32_t fan_level, double& multiplier) const {
+    if (area < 0 || area >= static_cast<std::int32_t>(entries.size())) return false;
+    const auto& entry = entries[static_cast<std::size_t>(area)];
+    if (!entry.valid || entry.fan_level != fan_level) return false;
+    multiplier = entry.multiplier;
+    return true;
+  }
+
+  constexpr void Store(std::int32_t area, std::int32_t fan_level, double multiplier) {
+    if (area < 0 || area >= static_cast<std::int32_t>(entries.size())) return;
+    entries[static_cast<std::size_t>(area)] = {true, fan_level, multiplier};
+  }
+};
+
 // --- Follower row "Likes/sec" label ------------------------------------------
 // Every visible follower row re-derives its Likes/sec figure on each tap, skill tap
 // and currency change (GgUIFollowerItemController subscribes its whole refresh to

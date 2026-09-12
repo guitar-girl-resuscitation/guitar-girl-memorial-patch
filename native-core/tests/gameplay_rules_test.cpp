@@ -87,6 +87,20 @@ int main() {
     }
   }
   {
+    ggfm::FanMultiplierMemo memo;
+    double value = 0;
+    if (memo.Find(1, 40, value)) return 30;                   // empty
+    memo.Store(1, 40, 2.5);
+    if (!memo.Find(1, 40, value) || value != 2.5) return 31;  // same level: reuse
+    if (memo.Find(1, 41, value)) return 32;                   // fans levelled: rebuild
+    if (memo.Find(2, 40, value)) return 33;                   // other area
+    memo.Store(99, 40, 9.0);
+    if (memo.Find(99, 40, value)) return 34;                  // out of range: never kept
+    memo.Store(1, 41, 3.0);
+    if (!memo.Find(1, 41, value) || value != 3.0 || memo.Find(1, 40, value)) return 35;
+    std::puts("PASS: fan multiplier is reused per area and rebuilt when the fan level moves");
+  }
+  {
     using ggfm::RecomputeRowLabel;
     constexpr std::int64_t second = 1'000'000'000;
     const ggfm::RowLabelStamp seen{7, 3, 5, 10 * second};
