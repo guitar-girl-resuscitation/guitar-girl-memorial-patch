@@ -89,6 +89,7 @@ add_library(ggfm_patch_core STATIC
   native-core/src/memorial_ui.cpp
   native-core/src/gameplay_compat.cpp
   native-core/src/client_save.cpp
+  native-core/src/follower_row_cache.cpp
   native-core/src/runtime_hooks.cpp
 )
 add_dependencies(ggfm_patch_core ggfm_generated_hooks)

@@ -86,6 +86,22 @@ int main() {
       }
     }
   }
+  {
+    using ggfm::RecomputeRowLabel;
+    constexpr std::int64_t second = 1'000'000'000;
+    const ggfm::RowLabelStamp seen{7, 3, 5, 10 * second};
+    if (!RecomputeRowLabel(false, seen, 7, 3, 5, 10 * second, 0)) return 20;          // new row
+    if (RecomputeRowLabel(true, seen, 7, 3, 5, 11 * second, 0)) return 21;            // tap: keep
+    if (!RecomputeRowLabel(true, seen, 8, 3, 5, 11 * second, 0)) return 22;           // recycled row
+    if (!RecomputeRowLabel(true, seen, 7, 4, 5, 11 * second, 11 * second)) return 23; // levelled
+    if (!RecomputeRowLabel(true, seen, 7, 3, 6, 11 * second, 11 * second)) return 24; // character
+    if (RecomputeRowLabel(true, seen, 7, 3, 5, 12 * second, 0)) return 25;            // 2 s: keep
+    if (!RecomputeRowLabel(true, seen, 7, 3, 5, 13 * second, 0)) return 26;           // expired
+    // Same dispatch: the previous row's recompute just ENDED, so this one waits.
+    if (RecomputeRowLabel(true, seen, 7, 3, 5, 13 * second, 13 * second - 1'000'000)) return 27;
+    if (!RecomputeRowLabel(true, seen, 7, 3, 5, 13 * second, 13 * second - 20'000'000)) return 28;
+    std::puts("PASS: follower row labels keep their text across taps, refresh on change");
+  }
   ggfm::QuestClaimProjection claims;
   claims.Update(1, {1, 0, 1});
   if (claims.State(1, 1, 0) != 2 || claims.State(1, 2, 1) != 1 ||

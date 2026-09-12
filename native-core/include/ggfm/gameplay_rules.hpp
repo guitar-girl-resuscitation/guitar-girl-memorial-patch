@@ -33,6 +33,41 @@ constexpr std::int64_t PassDayStartTicks(std::int64_t unix_seconds,
   return PassDayEndTicks(unix_seconds, utc_offset_minutes) - 86399LL * 10000000LL;
 }
 
+// --- Follower row "Likes/sec" label ------------------------------------------
+// Every visible follower row re-derives its Likes/sec figure on each tap, skill tap
+// and currency change (GgUIFollowerItemController subscribes its whole refresh to
+// the core tap event). That one label costs ~19 ms per row on a Lv. 1000 roster
+// under ARM translation -- the rest of the refresh is ~0.2 ms -- so four or five
+// visible rows took taps, bulk level-ups and bulk claims down to ~10 fps. Nothing
+// a tap changes feeds that figure. The row keeps the text it already shows unless
+// its follower changed, a level-up happened, or the text is older than
+// kRowLabelMaxAgeNs. An expired-only row also waits until kRowLabelFrameNs after
+// the END of the last recompute: all visible rows refresh inside one event
+// dispatch and each recompute outlasts the gap, so stamping the start would let
+// every expired row through at once.
+constexpr std::int64_t kRowLabelMaxAgeNs = 3'000'000'000;
+constexpr std::int64_t kRowLabelFrameNs = 12'000'000;
+
+struct RowLabelStamp {
+  std::int32_t follower_id;
+  std::uint64_t follower_generation;
+  std::uint64_t global_generation;
+  std::int64_t computed_ns;
+};
+
+constexpr bool RecomputeRowLabel(bool known, const RowLabelStamp& seen,
+                                 std::int32_t follower_id,
+                                 std::uint64_t follower_generation,
+                                 std::uint64_t global_generation, std::int64_t now_ns,
+                                 std::int64_t last_recompute_end_ns) {
+  if (!known || seen.follower_id != follower_id ||
+      seen.follower_generation != follower_generation ||
+      seen.global_generation != global_generation)
+    return true;
+  if (now_ns - seen.computed_ns < kRowLabelMaxAgeNs) return false;
+  return now_ns - last_recompute_end_ns >= kRowLabelFrameNs;
+}
+
 struct QuestClaimProjection {
   std::array<bool, 3> received{};
   std::int64_t usn = 0;
