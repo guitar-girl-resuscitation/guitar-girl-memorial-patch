@@ -53,6 +53,7 @@
     {"name":"ads.requestAndShow","rva":"0x1CFF2C4","prologue":"FE0F1BF8FA6701A9F85F02A9F65703A9"},
     {"name":"ads.noReady","rva":"0x1D20EB0","prologue":"FE57BEA9F44F01A9E0031FAAF30303AA"},
     {"name":"ads.managerInitialize","rva":"0x1D67BA8","prologue":"FE57BEA9F44F01A9011040F9F30300AA"},
+    {"name":"ads.requestAndLoad","rva":"0x1D67124","prologue":"FE0F1DF8F65701A9F44F02A9F42901D0"},
     {"name":"appsflyer.managerInitialize","rva":"0x1EB8728","prologue":"FE5FBDA9F65701A9F44F02A9751F01D0"},
     {"name":"pmang.membershipLogin","rva":"0x1E21928","prologue":"FE0F1DF8F65701A9F44F02A9352401B0"},
     {"name":"billing.doStorePurchase","rva":"0x21DFE84","prologue":"FE67BCA9F85F01A9F65702A9F44F03A9"},
