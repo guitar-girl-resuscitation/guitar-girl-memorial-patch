@@ -28,16 +28,7 @@ entry points are separately fingerprinted. Native tests cover fractional and
 integral increments, both ABI layouts, neighboring fields and every target level.
 Build/static checks are not a substitute for real-device UI acceptance.
 
-## Device acceptance
-
-On 2026-09-07 the existing main-phone ARM64 installation was updated in place
-with Server generation 11 and the fractional-increment Patch, preserving saves.
-The user tested the reported upgrade-price issue and confirmed it was working
-correctly, then authorized publication. ARMv7 has build/static coverage, not
-real-device acceptance for this change.
-
-The following remains the regression checklist; the user confirmation does not
-independently establish every chapter and restart case below:
+## Regression checks
 
 - Upgrade an existing same-day installation without clearing data.
 - Confirm the package's actual embedded Server/Patch versions, not just Nightly.

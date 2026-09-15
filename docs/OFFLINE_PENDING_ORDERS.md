@@ -1,17 +1,5 @@
 # Offline pending-platform-order query
 
-## Reproduced boundary
-
-Revision 89 could reach the home scene after removing the task and relaunching,
-but retain a translucent full-screen input blocker. Read-only scene inspection
-identified `UINetworkLoadingManager` / `Panel - NetworkLoading`, black alpha 0.7,
-while `InGameEntryProcess.eStateType` stayed at 9 (`STM_RetryUnfinishPurchase`).
-No normal popup was stacked. The last local gameplay RPC, `setAttendance`, had
-already returned; the old price Activity had finished and Unity was resumed.
-
-This is a different boundary from the price-catalog Activity fixed in revision
-89. Reporting a resumed Unity Activity alone is insufficient startup acceptance.
-
 ## Supported client contract
 
 The startup purchase-recovery stage calls the SDK's
@@ -48,19 +36,3 @@ must observe the callback, passage beyond entry state 9, disappearance of networ
 loading, and working settings controls across task-removal/relaunch with the same
 save. Include both first and subsequent launches. Do not claim this tests all
 platform SDK callbacks or all gameplay purchases.
-
-### Revision 90 first-launch result (2026-09-05)
-
-- Forty Python tests passed; Android native core rebuilt successfully.
-- Installed as an update on the primary phone, without clearing data or
-  rebooting the device. XAPK SHA-256:
-  `86F9B5A380140D17D80F450618087CB891B54144E157EFB38F9ACC7B22FFF49B`.
-- Process 14046 logged `pending platform orders=0; continuation delivered=1`
-  at 23:45:32.541. Read-only scene inspection then returned entry state 27
-  (`STM_Idle`), network waiting false, no active loading-manager widget, and
-  game buttons available. The existing level-15 slot was still selected.
-- Private evidence: `build/rev90-cold1.log`, `build/rev90-cold1-q548iquh.png`.
-  These files and original-client disassembly remain outside public repos.
-- The user subsequently tested recent-task removal and relaunch on the primary
-  phone and confirmed normal behavior. This is user-reported repeat-launch
-  acceptance in addition to the instrumented first-launch observation above.

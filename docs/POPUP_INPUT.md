@@ -1,19 +1,9 @@
 # Popup input completion
 
-PR #1 identified an input-dead period after a scale popup appears settled.
-Device testing found that moving the callback to EndScale alone still leaves
-about 0.55 seconds of opening tween during which early confirmation is ignored.
-An instant-open experiment was rejected for its visual feel and reverted.
 The original opening and closing animations are preserved. EndScale first clears
 the animator busy flag and settles alpha, then the stored open callback runs once.
-Clicks during the opening animation can still be ignored; this is not yet a
-complete fix for the reported early-confirmation behavior. Do not publish this
-as a fully validated first-click fix.
-
-Release decision (2026-09-07): the user tested the animation-preserving build on
-their ARM64 phone, reported improved overall feel and approved publishing this
-partial improvement. The instant-open experiment is NOT included. ARMv7 builds
-and mapping checks pass; this popup change has not had ARMv7 device acceptance.
+Clicks during the opening animation can still be ignored; this is not a complete
+fix for early confirmation.
 
 The wait coroutine's final callback-only state is consumed without dispatch.
 Leaving it active would let a delayed coroutine invoke a callback belonging to

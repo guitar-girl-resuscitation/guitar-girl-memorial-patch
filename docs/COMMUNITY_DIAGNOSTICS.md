@@ -12,6 +12,13 @@ Rust reports bad startup arguments, clock, thread/runtime construction, readines
 channel, master materialization/catalog and database failures. Numeric JNI startup
 codes also have descriptive hints; preceding detailed logs remain authoritative.
 
+For triage, distinguish `UnsatisfiedLinkError` (native library loading or symbol
+resolution) from startup `-6` accompanied by a master-catalog open error (the
+native server already ran). Request the full diagnostic text, device/Android
+version, installed build and installer. A preceding gameplay crash does not by
+itself establish the cause of a later startup failure. Do not clear player saves
+as a substitute for diagnosis.
+
 The Saves page exports current/previous text through Android's document picker.
 It works independently of database import/export and needs no blanket storage
 permission. A bounded private snapshot is updated asynchronously; Java uncaught
