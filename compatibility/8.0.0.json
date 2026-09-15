@@ -25,6 +25,12 @@
     "label": "Guitar Girl Fan Memorial Build"
   },
   "il2cppHooks": [
+    {"name":"gameplay.fan.multiplier","rva":"0x202C298","prologue":"E80F1EFCFE0700F9F44F01A9F303012A"},
+    {"name":"gameplay.fan.setRow","rva":"0x1D70400","prologue":"FE0F1DF8F65701A9F44F02A9B62901B0"},
+    {"name":"gameplay.fan.clear","rva":"0x1D71848","prologue":"FE0F1EF8F44F01A9B4290190F30300AA"},
+    {"name":"gameplay.fan.loadRpc","rva":"0x1D710BC","prologue":"FFC301D1FE6703A9F85F04A9F65705A9"},
+    {"name":"gameplay.fan.loadBytes","rva":"0x1D70F6C","prologue":"FF0301D1FE5F01A9F65702A9F44F03A9"},
+    {"name":"ads.requestAndLoad","rva":"0x1D67124","prologue":"FE0F1DF8F65701A9F44F02A9F42901D0"},
     {"name":"gameplay.upgrade.skillConstructor","rva":"0x21B2BE4","prologue":"FF0306D1E88B00FDFD7B12A9FC6F13A9"},
     {"name":"gameplay.upgrade.unitConstructor","rva":"0x2002174","prologue":"FF0305D1E86B00FDFD7B0EA9FC6F0FA9"},
     {"name":"offline.calculate","rva":"0x2100C9C","prologue":"FE0F1DF8F65701A9F44F02A9350D01F0"},
@@ -101,6 +107,7 @@
     {"name":"ui.unlockFanCostume.confirm","rva":"0x1CCE764","prologue":"FE4FBFA9F30300AAE0031FAA11411394"}
   ],
   "il2cppDependencies": [
+    {"name":"gameplay.fan.level","rva":"0x202C320","prologue":"FE4FBFA9E0031FAAF303012A8DCA0594"},
     {"name":"gameplay.upgrade.encodeFloat","rva":"0x1B15278","prologue":"E00308AA1F7D00A91F1100B9A34B0014"},
     {"name":"ui.popupBase.confirm","rva":"0x1B8E0A0","prologue":"FE4FBFA9011C40F9F30300AA010C03F8"},
     {"name":"pmang.commitLocalMembership","rva":"0x1E217D0","prologue":"FE5FBDA9F65701A9F44F02A9F30300AA"},

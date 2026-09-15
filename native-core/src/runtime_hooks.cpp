@@ -325,6 +325,15 @@ void NoReadyAdHook(void*, std::int32_t, void* on_success, void*, const void*) {
   InvokeDelegate(on_success, nullptr, 0);
 }
 
+void RequestAndLoadRewardedAdHook(void*, const void*) {
+  // PR #2: the stock failure callback immediately retries this entry. There is
+  // no external ad lifecycle in the memorial build; existing local completion
+  // hooks own rewards. Suppress creation, not the callback that grants rewards.
+  static std::atomic_flag reported = ATOMIC_FLAG_INIT;
+  if (!reported.test_and_set(std::memory_order_relaxed))
+    __android_log_print(ANDROID_LOG_INFO, "GGFM", "ads: external rewarded-ad loading disabled; local rewards active");
+}
+
 bool InstallLocalMembership(void* manager) {
   const auto fail = [](const char* stage) {
     __android_log_print(ANDROID_LOG_ERROR, "GGFM", "identity: local membership failed stage=%s", stage);
@@ -613,6 +622,8 @@ HookBinding Resolve(const std::string_view name) {
     return {reinterpret_cast<void*>(RewardedAdHook), nullptr};
   if (name == "ads.noReady")
     return {reinterpret_cast<void*>(NoReadyAdHook), nullptr};
+  if (name == "ads.requestAndLoad")
+    return {reinterpret_cast<void*>(RequestAndLoadRewardedAdHook), nullptr};
   if (name == "billing.doStorePurchase")
     return {reinterpret_cast<void*>(DoStorePurchaseHook), nullptr};
   if (name == "ui.popupEndScale")

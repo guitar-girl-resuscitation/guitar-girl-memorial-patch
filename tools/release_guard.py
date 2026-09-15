@@ -16,6 +16,8 @@ ALLOWED_SUFFIXES = {".rs", ".toml", ".lock", ".json", ".md", ".txt", ".h", ".hpp
                     ".yml", ".yaml", ".sh", ".ps1", ".sql"}
 ALLOWED_NAMES = {"LICENSE", "NOTICE", "CMakeLists.txt", ".gitignore", ".gitmodules",
                  ".gitattributes", "Dockerfile"}
+# Authored zero-address host fixture, not extracted/generated game data.
+ALLOWED_SOURCE_PATHS = {"tests/fixtures/fan-cache/ggfm/generated_hook_targets.inc"}
 FORBIDDEN_PARTS = {"reverse", "split_extract", "analysis", "captures", "saves",
                    "operator-source", "uploads", "cache", "target", "__pycache__"}
 FORBIDDEN_NAMES = {"dump.cs", "script.json", "global-metadata.dat", "master.sqlite"}
@@ -38,7 +40,7 @@ def check_path(name):
         return "private/generated directory"
     if p.name.lower() in FORBIDDEN_NAMES:
         return "proprietary input"
-    if p.name not in ALLOWED_NAMES and p.suffix not in ALLOWED_SUFFIXES:
+    if name not in ALLOWED_SOURCE_PATHS and p.name not in ALLOWED_NAMES and p.suffix not in ALLOWED_SUFFIXES:
         return "unapproved file type"
     return None
 
