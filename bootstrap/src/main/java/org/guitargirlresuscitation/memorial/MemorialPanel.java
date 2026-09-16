@@ -174,7 +174,8 @@ final class MemorialPanel {
             int pad = dp(activity, 20);
             content.setPadding(pad, pad, pad, pad);
             TextView description = new TextView(activity);
-            description.setText(CurrencyText.isMultiplier(currency) ? text.multiplier : text.count);
+            description.setText(CurrencyText.isMultiplier(currency)
+                    ? text.multiplier + "\n0 < × ≤ 1,000,000" : text.count);
             content.addView(description);
             content.addView(input);
             AlertDialog dialog = new AlertDialog.Builder(activity)

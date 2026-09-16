@@ -15,6 +15,11 @@ public final class CurrencyTextTest {
             if (!locale.equals("en") && words.title.equals("Add currency")) throw new AssertionError(locale);
         }
         for (String key : CurrencyText.KEYS) {
+            if (CurrencyText.isMultiplier(key)) {
+                if (!CurrencyText.validSyntax(key, "1000000") || CurrencyText.validSyntax(key, "1000001")
+                        || CurrencyText.validSyntax(key, "999999999999999999999999999999999999"))
+                    throw new AssertionError("unbounded multiplier: " + key);
+            }
             for (String good : new String[]{"1", "10", "1000"})
                 if (!CurrencyText.validSyntax(key, good)) throw new AssertionError(key + good);
             for (String bad : new String[]{"1A", "1k", "1K", "1+2", "1e3", "-1", "+1", "0", ".5", "1.", " 1", "NaN"})

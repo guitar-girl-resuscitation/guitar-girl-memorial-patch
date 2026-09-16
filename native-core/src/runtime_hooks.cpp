@@ -6,6 +6,7 @@
 #include "ggfm/admin_bridge.hpp"
 #include "ggfm/offline_sdk.hpp"
 #include "ggfm/popup_completion.hpp"
+#include "ggfm/large_number_display.hpp"
 
 #include <android/log.h>
 #include <dlfcn.h>
@@ -53,6 +54,23 @@ using StringNew = Il2CppString* (*)(const char*);
 using StringNewUtf16 = Il2CppString* (*)(const char16_t*, std::int32_t);
 StringNew string_new = nullptr;
 StringNewUtf16 string_new_utf16 = nullptr;
+struct BigIntegerValue { std::int32_t sign; void* bits; };
+struct UInt32Array {
+  void* klass; void* monitor; void* bounds; std::uintptr_t length;
+  std::uint32_t limbs[1];
+};
+using FormatBigInteger = Il2CppString* (*)(BigIntegerValue, std::int32_t, std::int32_t, bool, const void*);
+FormatBigInteger original_format_big_integer = nullptr;
+
+Il2CppString* FormatLargeInteger(BigIntegerValue value, std::int32_t precision,
+                                std::int32_t threshold, bool option, const void* method) {
+  if (value.bits != nullptr) {
+    const auto* array = static_cast<const UInt32Array*>(value.bits);
+    const auto preview = LargeNumberPreview(array->limbs, array->length, value.sign < 0, precision);
+    if (!preview.empty()) return string_new(preview.c_str());
+  }
+  return original_format_big_integer(value, precision, threshold, option, method);
+}
 std::uintptr_t set_header_address = 0;
 std::uintptr_t get_url_address = 0;
 std::uintptr_t do_server_purchase_address = 0;
@@ -600,6 +618,8 @@ void GoToEventIntroWithMemorialNotice(void* instance, const void* method) {
 }
 
 HookBinding Resolve(const std::string_view name) {
+  if (name == "ui.largeNumber.format")
+    return {reinterpret_cast<void*>(FormatLargeInteger), reinterpret_cast<void**>(&original_format_big_integer)};
   if (name == "offline.calculate")
     return {reinterpret_cast<void*>(OfflineCalculate), reinterpret_cast<void**>(&original_offline_calculate)};
   if (name == "offline.elapsed")

@@ -25,12 +25,10 @@ final class CurrencyText {
 
     static boolean validSyntax(String key, String input) {
         if (index(key) < 0 || input == null || input.length() > 64) return false;
-        if (isMultiplier(key)) return input.matches("[0-9]+")
-                && input.matches(".*[1-9].*");
         try {
             if (!input.matches("[0-9]+")) return false;
             long count = Long.parseLong(input);
-            return count > 0 && count <= Integer.MAX_VALUE;
+            return count > 0 && count <= (isMultiplier(key) ? 1_000_000L : Integer.MAX_VALUE);
         } catch (NumberFormatException error) { return false; }
     }
 
