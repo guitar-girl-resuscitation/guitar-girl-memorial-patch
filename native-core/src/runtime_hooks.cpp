@@ -7,6 +7,7 @@
 #include "ggfm/offline_sdk.hpp"
 #include "ggfm/popup_completion.hpp"
 #include "ggfm/large_number_display.hpp"
+#include "ggfm/plain_ellipsis.hpp"
 
 #include <android/log.h>
 #include <dlfcn.h>
@@ -42,6 +43,8 @@ static_assert(RuntimeField("popup.closing") != 0);
 static_assert(RuntimeField("popup.waitState") != 0);
 static_assert(RuntimeField("popup.waitOwner") != 0);
 static_assert(RuntimeField("popup.managerState") != 0);
+static_assert(RuntimeField("label.encoding") != 0);
+static_assert(RuntimeField("label.processedText") != 0);
 
 struct Il2CppString {
   void* klass;
@@ -105,6 +108,42 @@ WeakHandleNew popup_retain = nullptr;  // Same ABI, loaded from the STRONG expor
 HandleTarget popup_target = nullptr;
 HandleFree popup_release = nullptr;
 WriteBarrier popup_clear = nullptr;
+
+using ProcessLabel = void (*)(void*, bool, bool, const void*);
+using WrapLabel = bool (*)(Il2CppString*, Il2CppString**, bool, bool, bool, const void*);
+ProcessLabel original_process_label = nullptr;
+WrapLabel original_wrap_label = nullptr;
+thread_local PlainLabelContext plain_label_context;
+
+void ProcessLabelText(void* label, bool legacy, bool full, const void* method) {
+  auto* bytes = static_cast<std::uint8_t*>(label);
+  PlainLabelScope scope(plain_label_context,
+      label ? PlainLabelContext{label, bytes + RuntimeField("label.processedText"),
+                                bytes[RuntimeField("label.encoding")] != 0}
+            : PlainLabelContext{});
+  original_process_label(label, legacy, full, method);
+}
+
+bool WrapLabelText(Il2CppString* input, Il2CppString** output, bool keep_count,
+                   bool wrap_colors, bool ellipsis, const void* method) {
+  const bool result = original_wrap_label(input, output, keep_count, wrap_colors,
+                                          ellipsis, method);
+  if (plain_label_context.owner && !plain_label_context.encoding && ellipsis &&
+      plain_label_context.output == output && input && input->length >= 0 &&
+      output && *output && (*output)->length >= 0) {
+    const auto replacement = PlainEllipsis(plain_label_context, output, ellipsis,
+        {input->chars, static_cast<std::size_t>(input->length)},
+        {(*output)->chars, static_cast<std::size_t>((*output)->length)});
+    if (!replacement.empty()) {
+      auto* value = string_new_utf16(replacement.data(),
+                                    static_cast<std::int32_t>(replacement.size()));
+      if (value) popup_clear(plain_label_context.owner,
+                            reinterpret_cast<void**>(output), value);
+    }
+  }
+  // UILabel measures this result next; do not change its cached geometry later.
+  return result;
+}
 
 UrlGetter unused_url_original = nullptr;
 ManagedTransition original_popup_end_scale = nullptr;
@@ -618,6 +657,10 @@ void GoToEventIntroWithMemorialNotice(void* instance, const void* method) {
 }
 
 HookBinding Resolve(const std::string_view name) {
+  if (name == "ui.label.processText")
+    return {reinterpret_cast<void*>(ProcessLabelText), reinterpret_cast<void**>(&original_process_label)};
+  if (name == "ui.label.wrapText")
+    return {reinterpret_cast<void*>(WrapLabelText), reinterpret_cast<void**>(&original_wrap_label)};
   if (name == "ui.largeNumber.format")
     return {reinterpret_cast<void*>(FormatLargeInteger), reinterpret_cast<void**>(&original_format_big_integer)};
   if (name == "offline.calculate")

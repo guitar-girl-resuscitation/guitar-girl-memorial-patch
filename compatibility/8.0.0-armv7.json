@@ -34,6 +34,8 @@
     "label": "Guitar Girl Fan Memorial Build"
   },
   "il2cppHooks": [
+    {"name":"ui.label.processText","rva":"0x126E208","prologue":"F04F2DE904D04DE20C8B2DED20D04DE2"},
+    {"name":"ui.label.wrapText","rva":"0x13037DC","prologue":"F04F2DE904D04DE2108B2DED88D04DE2"},
     {"name":"ui.largeNumber.format","rva":"0x14A8714","prologue":"F04F2DE924D04DE2A0439FE50060A0E1"},
     {"name":"gameplay.fan.multiplier","rva":"0x13BCDE8","prologue":"F0482DE9028B2DED0140A0E1230000EB"},
     {"name":"gameplay.fan.setRow","rva":"0x1036D3C","prologue":"F0412DE908D04DE2A0519FE50060A0E1"},
@@ -444,6 +446,8 @@
     }
   ],
   "il2cppFields": {
+    "label.encoding":"0x144",
+    "label.processedText":"0x1E0",
     "upgrade.row.increment":"0xB0",
     "upgrade.skillDto.increment":"0x90",
     "upgrade.unitDto.increment":"0x88",
