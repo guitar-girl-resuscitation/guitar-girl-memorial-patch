@@ -96,6 +96,21 @@ int main() {
       claims.State(1, 3, 0) != 0) return 2;
   claims.Update(2, {0, 0, 0});
   if (claims.State(2, 2, 0) != 0 || claims.State(1, 2, 0) != 0) return 3;
-  std::puts("PASS: loopback boundary, save ordering, late bindings, daily deadlines, claims and USN isolation");
+  // A clamped preview keeps its text and trails off; everything else is untouched,
+  // including a line that already reads as repaired, so the pass is idempotent.
+  if (ggfm::RepairClampedPreview(u"When you're having a hard time, make [-][ff]...") !=
+      u"When you're having a hard time, make ...") return 18;
+  if (ggfm::RepairClampedPreview(u"[-][ff]...") != u"...") return 19;
+  // The label wraps its own output, so the suffix can arrive split across lines.
+  if (ggfm::RepairClampedPreview(u"She's still nagging at me. I think you sho[-]\n[ff]...") !=
+      u"She's still nagging at me. I think you sho...") return 20;
+  if (ggfm::RepairClampedPreview(u"We are looking for people for our indep[-][ff]...\n") !=
+      u"We are looking for people for our indep...") return 21;
+  for (const std::u16string_view kept : {u"Now go play your guitar, meow!", u"...",
+                                         u"[-][ff]", u"[ff]...", u"", u"[-][ff]... ",
+                                         u"[-] [ff]..."}) {
+    if (ggfm::RepairClampedPreview(kept) != kept) return 22;
+  }
+  std::puts("PASS: loopback boundary, save ordering, late bindings, daily deadlines, claims, USN isolation and clamped previews");
   return 0;
 }

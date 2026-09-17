@@ -3,6 +3,7 @@
 #include "ggfm/runtime.hpp"
 #include "ggfm/memorial_ui.hpp"
 #include "ggfm/gameplay_compat.hpp"
+#include "ggfm/gameplay_rules.hpp"
 #include "ggfm/admin_bridge.hpp"
 #include "ggfm/offline_sdk.hpp"
 #include "ggfm/popup_completion.hpp"
@@ -42,6 +43,10 @@ static_assert(RuntimeField("popup.closing") != 0);
 static_assert(RuntimeField("popup.waitState") != 0);
 static_assert(RuntimeField("popup.waitOwner") != 0);
 static_assert(RuntimeField("popup.managerState") != 0);
+// Mapped on ARM64 only so far; the ARMv7 profile declares neither the hook nor
+// the field, and an unmapped profile keeps the stock suffix rather than guessing
+// an offset into a layout nobody has verified.
+constexpr std::uintptr_t kProcessedTextField = RuntimeField("ui.label.processedText");
 
 struct Il2CppString {
   void* klass;
@@ -52,8 +57,10 @@ struct Il2CppString {
 
 using StringNew = Il2CppString* (*)(const char*);
 using StringNewUtf16 = Il2CppString* (*)(const char16_t*, std::int32_t);
+using ProcessLabelText = void (*)(void*, bool, bool, const void*);
 StringNew string_new = nullptr;
 StringNewUtf16 string_new_utf16 = nullptr;
+ProcessLabelText original_process_label_text = nullptr;
 struct BigIntegerValue { std::int32_t sign; void* bits; };
 struct UInt32Array {
   void* klass; void* monitor; void* bounds; std::uintptr_t length;
@@ -104,7 +111,7 @@ using WriteBarrier = void (*)(void*, void**, void*);
 WeakHandleNew popup_retain = nullptr;  // Same ABI, loaded from the STRONG export.
 HandleTarget popup_target = nullptr;
 HandleFree popup_release = nullptr;
-WriteBarrier popup_clear = nullptr;
+WriteBarrier write_barrier = nullptr;
 
 UrlGetter unused_url_original = nullptr;
 ManagedTransition original_popup_end_scale = nullptr;
@@ -202,6 +209,28 @@ Il2CppString* Namespaced(Il2CppString* key) {
   const auto changed = NamespacePlayerPrefsKey(std::u16string_view(original));
   if (changed == original) return key;
   return string_new_utf16(changed.data(), static_cast<std::int32_t>(changed.size()));
+}
+
+// NGUI rebuilds a label's drawn text here; a clamped one-line preview comes out
+// of it carrying the shipped "[-][ff]..." suffix. Repair it once, after the stock
+// pass has finished, so every screen that clamps a preview reads the same.
+void ProcessLabelTextHook(void* label, const bool legacy, const bool full,
+                          const void* method) {
+  original_process_label_text(label, legacy, full, method);
+  if (label == nullptr || string_new_utf16 == nullptr || kProcessedTextField == 0) return;
+  auto** slot = reinterpret_cast<Il2CppString**>(
+      reinterpret_cast<std::uintptr_t>(label) + kProcessedTextField);
+  const auto* processed = *slot;
+  if (processed == nullptr || processed->length <= 0) return;
+  const std::u16string_view drawn(processed->chars, static_cast<std::size_t>(processed->length));
+  if (!EndsWithClampedPreviewSuffix(drawn)) return;
+  const auto repaired = RepairClampedPreview(drawn);
+  auto* replacement =
+      string_new_utf16(repaired.data(), static_cast<std::int32_t>(repaired.size()));
+  if (replacement == nullptr) return;
+  // The shorter text draws inside the space the stock pass already measured.
+  if (write_barrier != nullptr) write_barrier(label, reinterpret_cast<void**>(slot), replacement);
+  else *slot = replacement;
 }
 
 Il2CppString* ReturnGameUrl(void*, const void*) {
@@ -431,7 +460,7 @@ void PopupEndScaleHook(void* animation, const void* method) {
   auto** callback = reinterpret_cast<void**>(bytes + RuntimeField("popup.openCallback"));
   __android_log_print(ANDROID_LOG_INFO, "GGFM", "popup: scale complete animator=%p callback=%d closing=%d",
                       animation, *callback != nullptr, bytes[RuntimeField("popup.closing")] != 0);
-  const PopupCompletionApi api{popup_retain, popup_target, popup_release, popup_clear,
+  const PopupCompletionApi api{popup_retain, popup_target, popup_release, write_barrier,
     +[](void* action) { return InvokeDelegate(action, nullptr, 0); }};
   if (!CompletePopupOnce(animation, callback, bytes[RuntimeField("popup.closing")] != 0, api)) {
     __android_log_print(ANDROID_LOG_ERROR, "GGFM", "popup: animation completion callback failed");
@@ -652,6 +681,9 @@ HookBinding Resolve(const std::string_view name) {
   if (name == "ui.popupWaitOpen")
     return {reinterpret_cast<void*>(PopupWaitHook),
             reinterpret_cast<void**>(&original_popup_wait)};
+  if (name == "ui.label.processText")
+    return {reinterpret_cast<void*>(ProcessLabelTextHook),
+            reinterpret_cast<void**>(&original_process_label_text)};
   if (name == "ui.shop.confirm" || name == "ui.shopDetail.confirm" ||
       name == "ui.infoFanCostume.confirm" || name == "ui.unlockFanCostume.confirm")
     return {reinterpret_cast<void*>(PopupConfirmHook), nullptr};
@@ -735,8 +767,8 @@ bool InstallRuntimeHooks(HookBackend& backend, const std::uintptr_t il2cpp_base,
   popup_retain = reinterpret_cast<WeakHandleNew>(dlsym(symbol_scope, "il2cpp_gchandle_new"));
   popup_target = reinterpret_cast<HandleTarget>(dlsym(symbol_scope, "il2cpp_gchandle_get_target"));
   popup_release = reinterpret_cast<HandleFree>(dlsym(symbol_scope, "il2cpp_gchandle_free"));
-  popup_clear = reinterpret_cast<WriteBarrier>(dlsym(symbol_scope, "il2cpp_gc_wbarrier_set_field"));
-  if (!popup_retain || !popup_target || !popup_release || !popup_clear) {
+  write_barrier = reinterpret_cast<WriteBarrier>(dlsym(symbol_scope, "il2cpp_gc_wbarrier_set_field"));
+  if (!popup_retain || !popup_target || !popup_release || !write_barrier) {
     __android_log_print(ANDROID_LOG_ERROR, "GGFM", "popup: required GC APIs unavailable");
     return false;
   }

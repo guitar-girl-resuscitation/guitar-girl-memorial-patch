@@ -105,7 +105,8 @@
     {"name":"ui.shop.confirm","rva":"0x1D4B4E0","prologue":"FE4FBFA9F30300AAE0031FAAB24D1194"},
     {"name":"ui.shopDetail.confirm","rva":"0x228FC80","prologue":"FE4FBFA9F30300AAE0031FAACA3BFC97"},
     {"name":"ui.infoFanCostume.confirm","rva":"0x211A238","prologue":"FE4FBFA9F30300AAE0031FAA5C120294"},
-    {"name":"ui.unlockFanCostume.confirm","rva":"0x1CCE764","prologue":"FE4FBFA9F30300AAE0031FAA11411394"}
+    {"name":"ui.unlockFanCostume.confirm","rva":"0x1CCE764","prologue":"FE4FBFA9F30300AAE0031FAA11411394"},
+    {"name":"ui.label.processText","rva":"0x1F2A164","prologue":"FF4302D1EC0B00FDEBAB016DE9A3026D"}
   ],
   "il2cppDependencies": [
     {"name":"gameplay.fan.level","rva":"0x202C320","prologue":"FE4FBFA9E0031FAAF303012A8DCA0594"},
@@ -123,6 +124,7 @@
     {"name":"ui.mailbox.requestPostTime","rva":"0x21F6E40","prologue":"FE67BCA9F85F01A9F65702A9F44F03A9"}
   ],
   "il2cppFields": {
+    "ui.label.processedText":"0x268",
     "upgrade.row.increment":"0x11C",
     "upgrade.skillDto.increment":"0xF8",
     "upgrade.unitDto.increment":"0xF8",
