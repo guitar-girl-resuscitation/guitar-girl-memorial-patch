@@ -2,6 +2,7 @@
 #include "ggfm/client_save.hpp"
 #include "ggfm/fan_multiplier_cache.hpp"
 #include "ggfm/gameplay_rules.hpp"
+#include "ggfm/ch3_preview.hpp"
 #include "ggfm/upgrade_increment.hpp"
 #include "ggfm/runtime.hpp"
 
@@ -12,6 +13,31 @@
 
 namespace ggfm {
 namespace {
+extern "C" int32_t ggfm_ch3_guest_bonus(int64_t, uint32_t, int32_t, int32_t);
+using PreviewStage = void (*)(void*, const void*);
+using GuestScore = int (*)(void*, int, const void*);
+PreviewStage original_preview = nullptr;
+GuestScore original_guest_score = nullptr;
+thread_local ch3::Preview* current_preview = nullptr;
+
+void PreviewStageScore(void* panel, const void* method) {
+  auto preview = ch3::snapshot(panel);
+  struct Scope {
+    ch3::Preview* previous;
+    ~Scope() { current_preview = previous; }
+  } scope{current_preview};
+  current_preview = &preview;
+  original_preview(panel, method);
+}
+
+int PreviewGuestScore(void* manager, int level, const void* method) {
+  const int base = original_guest_score(manager, level, method);
+  auto* preview = current_preview;
+  if (!preview || preview->next >= preview->count) return base;
+  const auto guest = preview->guests[preview->next++];
+  if (!guest.hinted || guest.level != level) return base;
+  return base + ggfm_ch3_guest_bonus(preview->stage, preview->hints, level, base);
+}
 #include "ggfm/generated_hook_targets.inc"
 
 constexpr std::uintptr_t Field(std::string_view name) {
@@ -217,6 +243,10 @@ HookBinding ResolveGameplayCompatibilityHook(std::string_view name) {
   if (name == "gameplay.pass.setWindow")
     return {reinterpret_cast<void*>(DailyPassWindow),
             reinterpret_cast<void**>(&original_set_window)};
+  if (name == "gameplay.ch3.preview")
+    return {reinterpret_cast<void*>(PreviewStageScore), reinterpret_cast<void**>(&original_preview)};
+  if (name == "gameplay.ch3.guestScore")
+    return {reinterpret_cast<void*>(PreviewGuestScore), reinterpret_cast<void**>(&original_guest_score)};
   if (name == "gameplay.quest.update")
     return {reinterpret_cast<void*>(RestoreQuestClaims),
             reinterpret_cast<void**>(&original_update_quest)};
