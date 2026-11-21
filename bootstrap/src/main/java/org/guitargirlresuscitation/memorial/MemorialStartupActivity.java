@@ -412,6 +412,8 @@ public final class MemorialStartupActivity extends Activity {
             long nowSeconds = nowMillis / 1_000L;
             int offsetMinutes = TimeZone.getDefault().getOffset(nowMillis) / 60_000;
             String capability = newCapability();
+            LoopbackProxy.configure();
+            append("network: direct route configured for embedded server (127.0.0.1)");
 
             append("server: startup requested before Unity initialization");
             Log.i(TAG, "bootstrap: starting embedded server before Unity");

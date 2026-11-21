@@ -292,7 +292,7 @@ void* SendWithMemorialHeaders(void* request, const void* method) {
   // AssetBundle requests also use UnityWebRequest.  Memorial authentication is
   // scoped to the embedded HTTP endpoint and must never be attached to file://
   // or jar:file:// loads.
-  if (!request_url.starts_with(context.endpoint)) {
+  if (!request_url.starts_with(context.endpoint + "/")) {
     __android_log_print(ANDROID_LOG_INFO, "GGFM",
                         "runtime: request.send #%u bypassing memorial headers",
                         call);

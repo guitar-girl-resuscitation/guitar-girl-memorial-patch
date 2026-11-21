@@ -10,6 +10,8 @@
 #include <sys/socket.h>
 
 #include <atomic>
+#include <charconv>
+#include <string_view>
 #include <cinttypes>
 #include <cstdlib>
 #include <cstring>
@@ -22,6 +24,7 @@ namespace {
 using Connect = int (*)(int, const sockaddr*, socklen_t);
 using Dlopen = void* (*)(const char*, int);
 Connect original_connect = nullptr;
+std::atomic<unsigned> embedded_port{0};
 Dlopen original_dlopen = nullptr;
 void* dlopen_target = nullptr;
 std::atomic<bool> installed{false};
@@ -247,9 +250,29 @@ int LoopbackOnlyConnect(const int socket, const sockaddr* address,
   if (!ggfm::IsLocalConnectAddress(address, length)) {
     static std::atomic<unsigned> denied{0};
     if (denied.fetch_add(1, std::memory_order_relaxed) < 8)
-      Log(ANDROID_LOG_WARN, "network: denied non-loopback or malformed connect");
+      Log(ANDROID_LOG_WARN, "diag network denied non-loopback or malformed connect");
     errno = EACCES;
     return -1;
+  }
+  const unsigned port = embedded_port.load(std::memory_order_relaxed);
+  bool embedded = false;
+  if (address->sa_family == AF_INET && length >= static_cast<socklen_t>(sizeof(sockaddr_in))) {
+    const auto* peer = reinterpret_cast<const sockaddr_in*>(address);
+    embedded = ntohl(peer->sin_addr.s_addr) == INADDR_LOOPBACK && ntohs(peer->sin_port) == port;
+  } else if (address->sa_family == AF_INET6 && length >= static_cast<socklen_t>(sizeof(sockaddr_in6))) {
+    const auto* peer = reinterpret_cast<const sockaddr_in6*>(address);
+    const auto* bytes = peer->sin6_addr.s6_addr;
+    embedded = IN6_IS_ADDR_V4MAPPED(&peer->sin6_addr) && bytes[12] == 127 &&
+        bytes[13] == 0 && bytes[14] == 0 && bytes[15] == 1 && ntohs(peer->sin6_port) == port;
+  }
+  if (embedded && port != 0) {
+    const int saved = errno;
+    if (setsockopt(socket, SOL_SOCKET, SO_BINDTODEVICE, "lo", sizeof("lo")) != 0) {
+      static std::atomic<bool> reported{false};
+      if (!reported.exchange(true))
+        __android_log_print(ANDROID_LOG_WARN, "GGFM", "diag network loopback-interface unavailable errno=%d", errno);
+    }
+    errno = saved;
   }
   return original_connect(socket, address, length);
 }
@@ -267,7 +290,15 @@ bool InstallNetworkBoundary() {
 }
 }  // namespace
 
-extern "C" bool ggfm_loader_prepare() {
+extern "C" bool ggfm_loader_prepare(const char* endpoint) {
+  constexpr std::string_view prefix = "http://127.0.0.1:";
+  const std::string_view url = endpoint ? endpoint : "";
+  if (!url.starts_with(prefix)) return false;
+  unsigned port = 0;
+  const auto end = url.data() + url.size();
+  const auto parsed = std::from_chars(url.data() + prefix.size(), end, port);
+  if (parsed.ec != std::errc{} || parsed.ptr != end || !port || port > 65535) return false;
+  embedded_port.store(port);
   if (!InstallNetworkBoundary()) {
     Log(ANDROID_LOG_ERROR, "runtime: loopback-only network boundary failed");
     return false;

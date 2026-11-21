@@ -58,7 +58,8 @@ final class MemorialAdminClient {
         }
         HttpURLConnection connection = null;
         try {
-            connection = (HttpURLConnection) new URL(endpoint + path).openConnection();
+            connection = (HttpURLConnection) new URL(endpoint + path).openConnection(java.net.Proxy.NO_PROXY);
+            connection.setInstanceFollowRedirects(false);
             connection.setConnectTimeout(2_000);
             connection.setReadTimeout(3_000);
             connection.setUseCaches(false);

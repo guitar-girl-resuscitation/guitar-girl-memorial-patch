@@ -23,7 +23,7 @@ std::size_t ggfm_server_startup_banner(std::uint32_t, char*, std::size_t);
 std::int32_t ggfm_server_transfer_save(const char*, const char*, bool);
 std::int32_t ggfm_server_prepare_shutdown();
 std::int32_t ggfm_server_stop();
-bool ggfm_loader_prepare();
+bool ggfm_loader_prepare(const char* endpoint);
 bool ggfm_loader_install_retired_native_sdks();
 bool ggfm_loader_install_runtime(bool firebase_only_diagnostic);
 bool ggfm_loader_arm_runtime(bool firebase_only_diagnostic);
@@ -88,7 +88,7 @@ Java_org_guitargirlresuscitation_memorial_MemorialNative_startServer(
   ggfm::SetRequestContext(
       {ggfm_server_endpoint(), session_capability, usn, utc_offset_minutes});
   if (!ggfm::SetActiveUsnOnce(usn)) return -15;
-  if (!ggfm_loader_prepare()) return -11;
+  if (!ggfm_loader_prepare(ggfm_server_endpoint())) return -11;
   return 0;
 }
 
