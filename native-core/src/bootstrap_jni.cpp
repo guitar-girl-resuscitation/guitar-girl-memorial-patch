@@ -92,6 +92,12 @@ Java_org_guitargirlresuscitation_memorial_MemorialNative_startServer(
   return 0;
 }
 
+extern "C" JNIEXPORT void JNICALL
+Java_org_guitargirlresuscitation_memorial_MemorialNative_setPassAnchor(
+    JNIEnv*, jclass, jlong day, jint season) {
+  ggfm::SetPassAnchor(day, season);
+}
+
 extern "C" JNIEXPORT jint JNICALL
 Java_org_guitargirlresuscitation_memorial_MemorialNative_installRuntimeHooks(
     JNIEnv*, jclass, jboolean firebase_only_diagnostic) {

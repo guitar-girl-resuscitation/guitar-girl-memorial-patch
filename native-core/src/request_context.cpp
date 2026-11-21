@@ -20,6 +20,12 @@ void SetRequestContext(RequestContext next) {
   request_sequence.store(0, std::memory_order_release);
 }
 
+void SetPassAnchor(std::int64_t day, int season) {
+  std::scoped_lock lock(context_mutex);
+  context.pass_anchor_day = day;
+  context.pass_anchor_season = season;
+}
+
 RequestContext GetRequestContext() {
   std::scoped_lock lock(context_mutex);
   auto current = context;

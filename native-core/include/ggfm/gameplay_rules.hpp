@@ -4,6 +4,14 @@
 #include <cstdint>
 
 namespace ggfm {
+constexpr int DailyPassSeason(std::int64_t unix_seconds, int offset_minutes,
+                              std::int64_t anchor_day, int anchor_season) {
+  const auto local = unix_seconds + offset_minutes * 60LL;
+  const auto day = local / 86400 - (local % 86400 < 0);
+  const auto index = (anchor_season - 1 + day % 13 - anchor_day % 13) % 13;
+  return static_cast<int>((index + 13) % 13 + 1);
+}
+
 // Only the active, fully initialized table graph may bind a late snapshot.
 // During cold-start the stock loader must keep deferring until tables exist.
 constexpr bool RefreshLoadedContent(bool requested, bool tables_initialized,

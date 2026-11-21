@@ -22,6 +22,9 @@ constexpr std::uintptr_t Field(std::string_view name) {
 }
 
 constexpr auto kPassEnd = Field("pass.window.endTicks");
+constexpr auto kPassId = Field("pass.window.id");
+constexpr auto kPassActive = Field("pass.window.active");
+static_assert(kPassId != 0 && kPassActive != 0);
 constexpr auto kQuestClaims = Field("quest.response.received1");
 static_assert(kPassEnd != 0 && kQuestClaims != 0);
 
@@ -144,15 +147,22 @@ void DailyPassWindow(void* instance, int year, int group_count, const void* meth
   const auto context = GetRequestContext();
   const auto now = std::chrono::duration_cast<std::chrono::seconds>(
       std::chrono::system_clock::now().time_since_epoch()).count();
-  // Both adjacent DateTime fields use the stock UTC+9 comparison clock, not
-  // device wall time. Leave the selected season and active flag unchanged.
+  auto* row = static_cast<char*>(instance);
+  int id = 0;
+  std::memcpy(&id, row + kPassId, sizeof(id));
+  if (id < 1 || id > 13 || context.pass_anchor_season < 1 || context.pass_anchor_season > 13) return;
+  const int season = DailyPassSeason(now, context.utc_offset_minutes, context.pass_anchor_day,
+                                     context.pass_anchor_season);
+  const bool active = id == season;
+  std::memcpy(row + kPassActive, &active, sizeof(active));
+  if (!active) return;
   const auto start = PassDayStartTicks(now, context.utc_offset_minutes);
   const auto end = PassDayEndTicks(now, context.utc_offset_minutes);
   std::memcpy(static_cast<char*>(instance) + kPassEnd - sizeof(start), &start, sizeof(start));
   std::memcpy(static_cast<char*>(instance) + kPassEnd, &end, sizeof(end));
   __android_log_print(ANDROID_LOG_INFO, "GGFM",
-      "pass: daily window offset=%d start=%lld end=%lld (stock UTC+9 ticks)",
-      context.utc_offset_minutes, static_cast<long long>(start), static_cast<long long>(end));
+      "pass: active subscription=%d offset=%d start=%lld end=%lld (stock UTC+9 ticks)",
+      id, context.utc_offset_minutes, static_cast<long long>(start), static_cast<long long>(end));
 }
 
 void RestoreQuestClaims(void* instance, void* response, const void* method) {

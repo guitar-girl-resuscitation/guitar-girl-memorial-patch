@@ -125,6 +125,8 @@
     {"name":"ui.mailbox.requestPostTime","rva":"0x21F6E40","prologue":"FE67BCA9F85F01A9F65702A9F44F03A9"}
   ],
   "il2cppFields": {
+    "pass.window.id":"0x10",
+    "pass.window.active":"0x40",
     "label.encoding":"0x1C4",
     "label.processedText":"0x268",
     "upgrade.row.increment":"0x11C",

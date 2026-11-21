@@ -452,6 +452,18 @@ public final class MemorialStartupActivity extends Activity {
             startupStage = "admin/lifecycle";
             append("admin: initializing authenticated local client and lifecycle");
             MemorialAdminClient.initialize(MemorialNative.endpoint(), capability);
+            String passReply = MemorialAdminClient.request("GET", "/memorial/v1/star-pass", "", 0);
+            if (passReply.startsWith("200\n")) {
+                org.json.JSONObject pass = new org.json.JSONObject(passReply.substring(4));
+                int active = pass.getInt("activeSeason");
+                long loginDay = Math.floorDiv(nowSeconds + offsetMinutes * 60L, 86400L);
+                boolean hasAnchor = pass.has("anchorSeason") && pass.has("anchorDay");
+                MemorialNative.setPassAnchor(hasAnchor ? pass.getLong("anchorDay") : loginDay,
+                        hasAnchor ? pass.getInt("anchorSeason") : active);
+                append("pass: server selected season " + active);
+            } else {
+                append("[WARN] pass: season lookup failed; using original subscription windows");
+            }
             MemorialLifecycle.register(app);
             runOnUiThread(() -> patchRuntimeAndLaunch(visibleSince));
         } catch (Throwable failure) {

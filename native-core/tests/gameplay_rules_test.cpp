@@ -65,6 +65,12 @@ int main() {
   static_assert(ggfm::LocalDayEndTicks(23 * 3600, 120) ==
                 ggfm::LocalDayEndTicks(86400, 0));
   static_assert(ggfm::LocalDayEndTicks(0, -60) == epoch_ticks - 10000000LL);
+  // A cached November season (4) must yield to the selected season (2).
+  constexpr auto selected = 20774LL * 86400 - 660 * 60;
+  static_assert(ggfm::DailyPassSeason(selected, 660, 20774, 2) == 2);
+  static_assert(ggfm::DailyPassSeason(selected + 86399, 660, 20774, 2) == 2);
+  static_assert(ggfm::DailyPassSeason(selected + 86400, 660, 20774, 2) == 3);
+  static_assert(ggfm::DailyPassSeason(selected + 86400, 660, 20774, 13) == 1);
   // Reproducer: 18:00 UTC is 13:00 UTC-5, but the game's clock is already
   // 03:00 the next day. An unconverted local deadline incorrectly hides Pass.
   static_assert(ggfm::LocalDayEndTicks(18 * 3600, -300) <

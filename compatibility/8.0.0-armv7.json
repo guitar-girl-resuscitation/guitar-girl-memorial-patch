@@ -446,6 +446,8 @@
     }
   ],
   "il2cppFields": {
+    "pass.window.id":"0x8",
+    "pass.window.active":"0x38",
     "label.encoding":"0x144",
     "label.processedText":"0x1E0",
     "upgrade.row.increment":"0xB0",

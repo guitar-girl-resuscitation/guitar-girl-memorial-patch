@@ -29,6 +29,7 @@ final class MemorialNative {
     static native int installRuntimeHooks(boolean firebaseOnlyDiagnostic);
     static native int armRuntimeHooks(boolean firebaseOnlyDiagnostic);
     static native String endpoint();
+    static native void setPassAnchor(long day, int season);
     static native String drainServerLogs();
     static native String startupBanner(int columns);
     static native int transferSave(String dataDir, String stagingPath, boolean importing);
