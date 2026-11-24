@@ -34,6 +34,9 @@
     "label": "Guitar Girl Fan Memorial Build"
   },
   "il2cppHooks": [
+    {"name":"ads.stockComplete","rva":"0xFD2BC0","prologue":"30482DE988509FE50140A0E105508FE0"},
+    {"name":"ads.shopReceipt","rva":"0x15F9864","prologue":"F04F2DE904D04DE2028B2DED68D04DE2"},
+    {"name":"ads.questShow","rva":"0x168D6AC","prologue":"F0482DE9B8619FE50040A0E10150A0E1"},
     {"name":"gameplay.ch3.preview","rva":"0x164AAC4","prologue":"F04F2DE904D04DE2048B2DED38D04DE2"},
     {"name":"gameplay.ch3.guestScore","rva":"0x10ADED0","prologue":"70402DE9AC609FE50050A0E10140A0E1"},
     {"name":"ui.label.processText","rva":"0x126E208","prologue":"F04F2DE904D04DE20C8B2DED20D04DE2"},
@@ -393,6 +396,9 @@
     {"name":"ui.unlockFanCostume.confirm","rva":"0xF69FF8","prologue":"30482DE90040A0E10000A0E322D918EB"}
   ],
   "il2cppDependencies": [
+    {"name":"ads.globalManager","rva":"0x15A0494","prologue":"10402DE95C409FE504408FE00000D4E5"},
+    {"name":"ads.questManager","rva":"0x15ABC90","prologue":"10402DE95C409FE504408FE00000D4E5"},
+    {"name":"ads.questViewed","rva":"0x11291F0","prologue":"10402DE910D04DE20040A0E10000E0E3"},
     {"name":"gameplay.fan.level","rva":"0x13BCE88","prologue":"30482DE90000A0E30140A0E1058E07EB"},
     {"name":"gameplay.upgrade.encodeFloat","rva":"0xD38730","prologue":"00482DE95000C0F20020A0E10030A0E3"},
     {"name":"ui.popupBase.confirm","rva":"0xDCFC80","prologue":"10402DE91C1090E50040A0E11810A0E5"},

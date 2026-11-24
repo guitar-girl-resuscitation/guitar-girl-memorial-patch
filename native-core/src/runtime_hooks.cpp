@@ -372,14 +372,70 @@ void DeleteAllHook(const void*) {
 // hooks. A forwarding-only hook adds no behavior and needlessly relocates the
 // ARMv7 internal-call resolver's PC-relative loads.
 
-void RewardedAdHook(std::int32_t, void* on_success, void*, const void*) {
-  InvokeDelegate(on_success, nullptr, 0);
+using ManagerGetter = void* (*)(const void*);
+using StockAdComplete = void (*)(void*, void*, const void*);
+using ShopReceipt = void (*)(void*, void*, const void*);
+using StaticFieldGet = void (*)(void*, void*);
+ManagerGetter ad_global_manager = nullptr;
+StockAdComplete stock_ad_complete = nullptr;
+ShopReceipt stock_shop_receipt = nullptr;
+StaticFieldGet read_static = nullptr;
+
+template<class T> T AdField(const void* obj, unsigned offset) {
+  T value{};
+  if (obj) std::memcpy(&value, static_cast<const char*>(obj) + offset, sizeof(value));
+  return value;
 }
 
-void NoReadyAdHook(void*, std::int32_t, void* on_success, void*, const void*) {
-  // Some callers take the stock unavailable-ad branch before RequestAndShow.
-  // Preserve the tested LSPosed completion path, without its countdown popup.
-  InvokeDelegate(on_success, nullptr, 0);
+void CompleteLocalAd(void* manager, int type, void* success, const void* method) {
+  if (!success) return;
+  if (type >= 5 && type <= 7) {
+    // Free likes/hearts/chocolate: the callback initiates buyShop. Its
+    // committed reward receipt, below, owns the ad-view notification.
+    InvokeDelegate(success, nullptr, 0);
+    return;
+  }
+  // Stock premium path invokes the reward action, then broadcasts
+  // GlobalManagerSGT.OnSuccessAdViewEvent to all subscribed game systems.
+  stock_ad_complete(manager, success, method);
+  if (type == 1 || type == 2) {
+    const auto ack = AdminRequest("POST", "/memorial/v1/events/skill-reset-ad");
+    if (!ack.ok()) __android_log_print(ANDROID_LOG_WARN, "GGFM", "skill-reset ad acknowledgement HTTP %d", ack.status);
+  }
+}
+
+void PremiumAdComplete(void* instance, void* success, const void* method) {
+  auto* manager = ad_global_manager(nullptr);
+  // The stock coroutine can pass a null instance. ShowRewardedAd stores
+  // the type on the singleton before branching on the Remove Ads buff.
+  CompleteLocalAd(instance, AdField<int>(manager, sizeof(void*) == 8 ? 0xa0 : 0x74), success, method);
+}
+
+void RewardedAdHook(std::int32_t type, void* success, void*, const void*) {
+  CompleteLocalAd(ad_global_manager(nullptr), type, success, nullptr);
+}
+
+void NoReadyAdHook(void* manager, std::int32_t type, void* success, void*, const void*) {
+  CompleteLocalAd(manager, type, success, nullptr);
+}
+
+void RewardedShopReceipt(void* closure, void* response, const void* method) {
+  constexpr unsigned p = sizeof(void*);
+  auto* purchase = AdField<void*>(closure, 3*p);
+  auto* item = AdField<void*>(purchase, 3*p);
+  const int id = AdField<int>(item, 2*p);
+  auto* data = AdField<void*>(response, 6*p);
+  auto* rewards = AdField<void*>(data, p == 8 ? 0x20 : 0x18);
+  const bool earned = (id == 2 || id == 3 || id == 18) && AdField<int>(rewards, 3*p) > 0;
+  stock_shop_receipt(closure, response, method); // includes the stock per-item events
+  if (!earned) return; // retries carry an empty Reward_data
+  auto* manager = ad_global_manager(nullptr);
+  if (!manager) return;
+  // Verified compiler-generated backing field of OnSuccessAdViewEvent.
+  auto* field = class_get_field(object_get_class(manager), "뀈뀋뀌뀏뀉뀊뀁뀏뀁뀄뀁");
+  void* listeners = nullptr;
+  if (field) read_static(field, &listeners);
+  if (listeners) InvokeDelegate(listeners, nullptr, 0);
 }
 
 void RequestAndLoadRewardedAdHook(void*, const void*) {
@@ -683,6 +739,11 @@ HookBinding Resolve(const std::string_view name) {
     return {reinterpret_cast<void*>(ReturnCompatibleApplicationVersion), nullptr};
   if (name == "ads.requestAndShow")
     return {reinterpret_cast<void*>(RewardedAdHook), nullptr};
+  if (name == "ads.stockComplete")
+    return {reinterpret_cast<void*>(PremiumAdComplete), reinterpret_cast<void**>(&stock_ad_complete)};
+  if (name == "ads.shopReceipt")
+    return {reinterpret_cast<void*>(RewardedShopReceipt), reinterpret_cast<void**>(&stock_shop_receipt)};
+  if (name == "ads.questShow") return ResolveGameplayCompatibilityHook(name);
   if (name == "ads.noReady")
     return {reinterpret_cast<void*>(NoReadyAdHook), nullptr};
   if (name == "ads.requestAndLoad")
@@ -833,6 +894,10 @@ bool InstallRuntimeHooks(HookBackend& backend, const std::uintptr_t il2cpp_base,
     return installed;
   }
   set_header_address = il2cpp_base + set_header->rva;
+  const auto* ad_global = Dependency("ads.globalManager");
+  read_static = reinterpret_cast<StaticFieldGet>(dlsym(symbol_scope, "il2cpp_field_static_get_value"));
+  if (!ad_global || !read_static) return false;
+  ad_global_manager = reinterpret_cast<ManagerGetter>(il2cpp_base + ad_global->rva);
   get_url_address = il2cpp_base + get_url->rva;
   do_server_purchase_address = il2cpp_base + do_server_purchase->rva;
   request_update_time_address = il2cpp_base + request_update_time->rva;

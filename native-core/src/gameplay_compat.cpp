@@ -1,4 +1,5 @@
 #include "ggfm/gameplay_compat.hpp"
+#include "ggfm/admin_bridge.hpp"
 #include "ggfm/client_save.hpp"
 #include "ggfm/fan_multiplier_cache.hpp"
 #include "ggfm/gameplay_rules.hpp"
@@ -206,10 +207,38 @@ int QuestClaimState(void* instance, int index, const void* method) {
   return instance != nullptr ? claims.State(GetRequestContext().usn, index, state)
                              : state;
 }
+
+using ShowGuide = void (*)(void*, void*, const void*);
+ShowGuide original_show_guide = nullptr;
+GetTable get_guide_manager = nullptr;
+PreviewStage notify_guide_ad = nullptr;
+
+void ShowGuideWithCommittedProgress(void* panel, void* quest, const void* method) {
+  constexpr auto p = sizeof(void*);
+  void* user = nullptr;
+  void* master = nullptr;
+  if (quest) {
+    std::memcpy(&user, static_cast<char*>(quest) + 2*p + 8, p);
+    std::memcpy(&master, static_cast<char*>(quest) + 3*p + 8, p);
+  }
+  int stage = 0;
+  if (user) std::memcpy(&stage, static_cast<char*>(user) + 2*p + 4, sizeof(stage));
+  if (stage == 4 && master && QuestClaimState(quest, 2, nullptr) == 0) {
+    const auto reply = AdminRequest("GET", "/memorial/v1/events/teacher-ad");
+    if (reply.status == 200 && reply.body == "rewardedAdCompleted") {
+      if (void* manager = get_guide_manager(nullptr)) notify_guide_ad(manager, nullptr);
+    }
+  }
+  original_show_guide(panel, quest, method);
+}
 }  // namespace
 
 bool InitializeGameplayCompatibility(const std::uintptr_t il2cpp_base) {
   for (const auto& dependency : kGeneratedDependencies) {
+    if (dependency.name == "ads.questManager")
+      get_guide_manager = reinterpret_cast<GetTable>(il2cpp_base + dependency.rva);
+    if (dependency.name == "ads.questViewed")
+      notify_guide_ad = reinterpret_cast<PreviewStage>(il2cpp_base + dependency.rva);
     if (dependency.name == "gameplay.upgrade.encodeFloat") {
       encode_upgrade_float = reinterpret_cast<EncodeUpgradeFloat>(il2cpp_base + dependency.rva);
     }
@@ -217,11 +246,13 @@ bool InitializeGameplayCompatibility(const std::uintptr_t il2cpp_base) {
       get_table = reinterpret_cast<GetTable>(il2cpp_base + dependency.rva);
     }
   }
-  return get_table != nullptr && encode_upgrade_float != nullptr && InitializeClientSave(il2cpp_base) &&
+  return get_guide_manager && notify_guide_ad && get_table && encode_upgrade_float && InitializeClientSave(il2cpp_base) &&
          InitializeFanMultiplierCache(il2cpp_base);
 }
 
 HookBinding ResolveGameplayCompatibilityHook(std::string_view name) {
+  if (name == "ads.questShow")
+    return {reinterpret_cast<void*>(ShowGuideWithCommittedProgress), reinterpret_cast<void**>(&original_show_guide)};
   if (name == "gameplay.upgrade.skillConstructor")
     return {reinterpret_cast<void*>(SkillConstructor), reinterpret_cast<void**>(&original_skill_constructor)};
   if (name == "gameplay.upgrade.unitConstructor")
