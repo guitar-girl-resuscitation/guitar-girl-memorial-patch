@@ -18,7 +18,7 @@ struct AdminResponse {
 };
 
 bool InitializeAdminBridge(JavaVM* vm, JNIEnv* env);
-void RecordMusicEvent(const char* message);
+void RecordGameplayEvent(const char* message);
 void ShowMemorialPage(std::string_view title, const std::array<std::string, 4>& labels,
                       std::string_view close);
 void ShowMemorialMessage(std::string_view title, std::string_view body, std::string_view close);

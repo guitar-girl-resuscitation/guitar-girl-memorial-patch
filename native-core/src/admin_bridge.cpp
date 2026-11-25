@@ -43,7 +43,7 @@ bool InitializeAdminBridge(JavaVM* vm, JNIEnv* env) {
   request_method = env->GetStaticMethodID(
       client_class, "request",
       "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;J)Ljava/lang/String;");
-  journal_method = env->GetStaticMethodID(client_class, "recordMusicEvent", "(Ljava/lang/String;)V");
+  journal_method = env->GetStaticMethodID(client_class, "recordGameplayEvent", "(Ljava/lang/String;)V");
   if (!journal_method) env->ExceptionClear();
   page_method = env->GetStaticMethodID(client_class, "showPage",
       "(Ljava/lang/String;[Ljava/lang/String;Ljava/lang/String;)V");
@@ -85,7 +85,7 @@ void WithPanelEnvironment(Operation operation) {
   if (attached) java_vm->DetachCurrentThread();
 }
 
-void RecordMusicEvent(const char* message) {
+void RecordGameplayEvent(const char* message) {
   WithPanelEnvironment([&](JNIEnv* env) {
     if (journal_method)
       env->CallStaticVoidMethod(client_class, journal_method, env->NewStringUTF(message));

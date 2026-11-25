@@ -108,23 +108,56 @@ void TraceMusicLabel(void* slot, const void* method) {
   char line[112];
   std::snprintf(line, sizeof(line), "music.row chapter=%d slot=%u id=%d level=%d",
                 SlotId == Field("music.ch1SlotId") ? 1 : 2, it->second.index, id, level);
-  RecordMusicEvent(line);
+  RecordGameplayEvent(line);
 }
 
 LevelUpMusic level_up_music = nullptr;
+using ApplyMusicLevel = bool (*)(void*, int, int, bool, const void*);
+ApplyMusicLevel original_apply_music_level = nullptr;
+void (*create_music_at_one)(void*, int, const void*) = nullptr;
+bool (*contains_music)(void*, int, const void*) = nullptr;
+struct SongPurchase { void* table; int id; };
+thread_local SongPurchase fresh_song{};
+
+bool ApplyMusicLevelChange(void* table, int id, int delta, bool skip_save, const void* method) {
+  if (fresh_song.table == table && fresh_song.id == id && delta == 1 && !skip_save &&
+      !contains_music(table, id, nullptr)) {
+    // The stock first-acquisition method explicitly initializes the level,
+    // binds the master, marks UserMusic dirty, and persists PlayerPrefs.
+    create_music_at_one(table, id, nullptr);
+    return music_level(table, id, nullptr) == 1;
+  }
+  return original_apply_music_level(table, id, delta, skip_save, method);
+}
+
+using SkillActivated = void (*)(void*, int, const void*);
+SkillActivated original_skill_activated = nullptr;
+void TraceSkillActivated(void* manager, int id, const void* method) {
+  char line[64];
+  std::snprintf(line, sizeof(line), "skill.activated id=%d", id);
+  RecordGameplayEvent(line);
+  original_skill_activated(manager, id, method);
+}
 
 bool TraceLevelUpMusic(void* core, int id, int delta, bool reward, bool skip_save, const void* method) {
   void* music = UserMusicTable();
   const int before = music ? music_level(music, id, nullptr) : -1;
+  if (!reward && music && fresh_song.table == music && fresh_song.id == id) return false;
+  struct RestorePurchase {
+    SongPurchase previous;
+    ~RestorePurchase() { fresh_song = previous; }
+  } restore{fresh_song};
+  fresh_song = !reward && !skip_save && before == 0 && delta == 1
+      ? SongPurchase{music, id} : SongPurchase{};
   char line[144];
   std::snprintf(line, sizeof(line), "music.level.begin id=%d path=%s before=%d delta=%d",
                 id, reward ? "reward" : "purchase", before, delta);
-  RecordMusicEvent(line);
+  RecordGameplayEvent(line);
   const bool ok = level_up_music(core, id, delta, reward, skip_save, method);
   music = UserMusicTable();
   std::snprintf(line, sizeof(line), "music.level id=%d path=%s before=%d delta=%d after=%d ok=%d",
                 id, reward ? "reward" : "purchase", before, delta, music ? music_level(music, id, nullptr) : -1, ok);
-  RecordMusicEvent(line);
+  RecordGameplayEvent(line);
   return ok;
 }
 
@@ -142,11 +175,11 @@ void UnlockNewSong(void* slot, const void* method) {
   char line[96];
   std::snprintf(line, sizeof(line), "music.unlock chapter=%d id=%d before=%d accepted=%d",
                 SlotId == Field("music.ch1SlotId") ? 1 : 2, id, before, before == 0);
-  RecordMusicEvent(line);
+  RecordGameplayEvent(line);
   if (before == 0) Unlock(slot, method);
   const int after = music_level(music, id, nullptr);
   std::snprintf(line, sizeof(line), "music.unlock.end id=%d before=%d after=%d", id, before, after);
-  RecordMusicEvent(line);
+  RecordGameplayEvent(line);
   __android_log_print(ANDROID_LOG_INFO, "GGFM", "music: unlock id=%d level=%d -> %d", id, before, after);
 }
 using BuyApClick = void (*)(void*, const void*);
@@ -243,7 +276,7 @@ bool MusicLoad(void* instance, void* list, bool refresh, const void* method) {
       char line[96];
       std::snprintf(line, sizeof(line), "music.load id=%d server=%lld client=%d",
                     static_cast<int>(id), static_cast<long long>(level), actual);
-      RecordMusicEvent(line);
+      RecordGameplayEvent(line);
     }
   }
   return loaded;
@@ -342,6 +375,10 @@ void ShowGuideWithCommittedProgress(void* panel, void* quest, const void* method
 
 bool InitializeGameplayCompatibility(const std::uintptr_t il2cpp_base) {
   for (const auto& dependency : kGeneratedDependencies) {
+    if (dependency.name == "gameplay.music.createLevelOne")
+      create_music_at_one = reinterpret_cast<decltype(create_music_at_one)>(il2cpp_base + dependency.rva);
+    if (dependency.name == "gameplay.music.contains")
+      contains_music = reinterpret_cast<decltype(contains_music)>(il2cpp_base + dependency.rva);
     if (dependency.name == "gameplay.music.level")
       music_level = reinterpret_cast<MusicLevel>(il2cpp_base + dependency.rva);
     if (dependency.name == "ads.questManager")
@@ -355,11 +392,15 @@ bool InitializeGameplayCompatibility(const std::uintptr_t il2cpp_base) {
       get_table = reinterpret_cast<GetTable>(il2cpp_base + dependency.rva);
     }
   }
-  return music_level && get_guide_manager && notify_guide_ad && get_table && encode_upgrade_float && InitializeClientSave(il2cpp_base) &&
+  return create_music_at_one && contains_music && music_level && get_guide_manager && notify_guide_ad && get_table && encode_upgrade_float && InitializeClientSave(il2cpp_base) &&
          InitializeFanMultiplierCache(il2cpp_base);
 }
 
 HookBinding ResolveGameplayCompatibilityHook(std::string_view name) {
+  if (name == "gameplay.music.applyLevel")
+    return {reinterpret_cast<void*>(ApplyMusicLevelChange), reinterpret_cast<void**>(&original_apply_music_level)};
+  if (name == "gameplay.skill.activated")
+    return {reinterpret_cast<void*>(TraceSkillActivated), reinterpret_cast<void**>(&original_skill_activated)};
   if (name == "gameplay.music.labelCh1")
     return {reinterpret_cast<void*>(TraceMusicLabel<Field("music.ch1SlotId"), label_ch1>), reinterpret_cast<void**>(&label_ch1)};
   if (name == "gameplay.music.labelCh2")

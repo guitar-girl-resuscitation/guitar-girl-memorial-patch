@@ -709,7 +709,7 @@ public final class MemorialStartupActivity extends Activity {
     }
 
     private void exportDiagnostics(boolean previous) {
-        pendingReport = previous ? previousReport : visibleLog.toString() + "\n" + RuntimeJournal.current();
+        pendingReport = TerminalText.diagnosticReport(previous ? previousReport : visibleLog.toString() + "\n" + RuntimeJournal.current());
         if (pendingReport.isEmpty()) {
             android.widget.Toast.makeText(this, DiagnosticText.get(2), android.widget.Toast.LENGTH_LONG).show();
             return;

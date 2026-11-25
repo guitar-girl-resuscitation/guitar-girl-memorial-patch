@@ -400,6 +400,8 @@ void CompleteLocalAd(void* manager, int type, void* success, const void* method)
   stock_ad_complete(manager, success, method);
   if (type == 1 || type == 2) {
     const auto ack = AdminRequest("POST", "/memorial/v1/events/skill-reset-ad");
+    const auto line = "skill.reset chapter=" + std::to_string(type) + " callback=completed http=" + std::to_string(ack.status);
+    RecordGameplayEvent(line.c_str());
     if (!ack.ok()) __android_log_print(ANDROID_LOG_WARN, "GGFM", "skill-reset ad acknowledgement HTTP %d", ack.status);
   }
 }

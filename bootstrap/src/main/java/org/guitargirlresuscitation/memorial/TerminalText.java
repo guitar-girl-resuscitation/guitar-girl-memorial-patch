@@ -53,6 +53,27 @@ final class TerminalText {
 
     static char spinner(int frame) { return "|/-\\".charAt(frame % 4); }
 
+    // Older sessions already contain presentation lines. Strip only known
+    // ceremony text so stack traces and multi-line diagnostics stay intact.
+    static String diagnosticReport(String report) {
+        java.util.Set<String> ceremony = new java.util.HashSet<>(java.util.Arrays.asList(
+                "link    ...... ok", "asset   ...... ok", "table   ...... ok", "server  ...... ok",
+                "save    ...... ok", "FOUND", "Welcome home, Lily!",
+                "[INFO] AIRISUTEK TRANSPORT ON / loopback ready", "[INFO] AIRISUTEK MEMORY ONLINE / master mounted",
+                "[SCENE] AIRISUTEK PATCH LINK ... ARMED"));
+        for (String[] stage : RITUAL) {
+            ceremony.add(stage[0]);
+            java.util.Collections.addAll(ceremony, stage[1].split("\n"));
+        }
+        for (int i = 0; i <= PROGRESS_STEPS; i++) ceremony.add(progress(i));
+        StringBuilder result = new StringBuilder();
+        for (String line : report.split("\r?\n")) {
+            String content = line.replaceFirst("^\\[\\d+:\\d{2}\\.\\d{3}\\] ", "");
+            if (!ceremony.contains(content) && !line.trim().isEmpty()) result.append(line).append('\n');
+        }
+        return result.toString();
+    }
+
     static String severity(String line) {
         if (line.equals("...") || line.equals("Welcome home, Lily!")) return "WELCOME";
         if (line.contains("[ERROR]") || line.contains("fatal.")) return "ERROR";

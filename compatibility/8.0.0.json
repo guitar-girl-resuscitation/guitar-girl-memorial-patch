@@ -25,6 +25,8 @@
     "label": "Guitar Girl Fan Memorial Build"
   },
   "il2cppHooks": [
+    {"name":"gameplay.music.applyLevel","rva":"0x1F55440","prologue":"FE0F1CF8F85F01A9F65702A9F44F03A9"},
+    {"name":"gameplay.skill.activated","rva":"0x1CB7C54","prologue":"FE57BEA9F44F01A9742F01D035180190"},
     {"name":"gameplay.music.labelCh1","rva":"0x1F9B53C","prologue":"FF0301D1FE5F01A9F65702A9F44F03A9"},
     {"name":"gameplay.music.labelCh2","rva":"0x1FCE39C","prologue":"FF0301D1FE5F01A9F65702A9F44F03A9"},
     {"name":"gameplay.music.levelUp","rva":"0x1CB2214","prologue":"FF8301D1FE0B00F9FA6702A9F85F03A9"},
@@ -120,6 +122,8 @@
     {"name":"ui.unlockFanCostume.confirm","rva":"0x1CCE764","prologue":"FE4FBFA9F30300AAE0031FAA11411394"}
   ],
   "il2cppDependencies": [
+    {"name":"gameplay.music.createLevelOne","rva":"0x1F534EC","prologue":"FE57BEA9F44F01A9951A01F0F303012A"},
+    {"name":"gameplay.music.contains","rva":"0x1F52B54","prologue":"FE57BEA9F44F01A9B51A0190F303012A"},
     {"name":"gameplay.music.level","rva":"0x1F52D90","prologue":"FE57BEA9F44F01A9B51A0190F303012A"},
     {"name":"ads.globalManager","rva":"0x219EBB4","prologue":"FE0F1EF8F44F01A9540801B013F10090"},
     {"name":"ads.questManager","rva":"0x21A7AF8","prologue":"FE0F1EF8F44F01A914080190F3F000D0"},
