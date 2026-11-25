@@ -69,6 +69,29 @@ LoadMusic original_load_costume = nullptr;
 LoadMusic original_load_ad_level = nullptr;
 using GetTable = void* (*)(const void*);
 GetTable get_table = nullptr;
+using MusicLevel = int (*)(void*, int, const void*);
+using MusicUnlock = void (*)(void*, const void*);
+MusicLevel music_level = nullptr;
+MusicUnlock unlock_ch1 = nullptr;
+MusicUnlock unlock_ch2 = nullptr;
+
+// Both stock unlock buttons call the same additive API as the +1 button.
+// Re-check ownership here in case the old button fires again before rebinding.
+template<auto SlotId, MusicUnlock& Unlock>
+void UnlockNewSong(void* slot, const void* method) {
+  static_assert(SlotId && Field("table.music"));
+  void* table = get_table(nullptr);
+  void* music = nullptr;
+  if (table) std::memcpy(&music, static_cast<char*>(table) + Field("table.music"), sizeof(music));
+  if (!slot || !music) return;
+  int id = 0;
+  std::memcpy(&id, static_cast<char*>(slot) + SlotId, sizeof(id));
+  if (id <= 0) return;
+  const int before = music_level(music, id, nullptr);
+  if (before == 0) Unlock(slot, method);
+  __android_log_print(ANDROID_LOG_INFO, "GGFM", "music: unlock id=%d level=%d -> %d",
+                      id, before, music_level(music, id, nullptr));
+}
 using BuyApClick = void (*)(void*, const void*);
 BuyApClick original_buy_ap_click = nullptr;
 using MasterConstructor = void (*)(void*, void*, const void*);
@@ -235,6 +258,8 @@ void ShowGuideWithCommittedProgress(void* panel, void* quest, const void* method
 
 bool InitializeGameplayCompatibility(const std::uintptr_t il2cpp_base) {
   for (const auto& dependency : kGeneratedDependencies) {
+    if (dependency.name == "gameplay.music.level")
+      music_level = reinterpret_cast<MusicLevel>(il2cpp_base + dependency.rva);
     if (dependency.name == "ads.questManager")
       get_guide_manager = reinterpret_cast<GetTable>(il2cpp_base + dependency.rva);
     if (dependency.name == "ads.questViewed")
@@ -246,11 +271,15 @@ bool InitializeGameplayCompatibility(const std::uintptr_t il2cpp_base) {
       get_table = reinterpret_cast<GetTable>(il2cpp_base + dependency.rva);
     }
   }
-  return get_guide_manager && notify_guide_ad && get_table && encode_upgrade_float && InitializeClientSave(il2cpp_base) &&
+  return music_level && get_guide_manager && notify_guide_ad && get_table && encode_upgrade_float && InitializeClientSave(il2cpp_base) &&
          InitializeFanMultiplierCache(il2cpp_base);
 }
 
 HookBinding ResolveGameplayCompatibilityHook(std::string_view name) {
+  if (name == "gameplay.music.unlockCh1")
+    return {reinterpret_cast<void*>(UnlockNewSong<Field("music.ch1SlotId"), unlock_ch1>), reinterpret_cast<void**>(&unlock_ch1)};
+  if (name == "gameplay.music.unlockCh2")
+    return {reinterpret_cast<void*>(UnlockNewSong<Field("music.ch2SlotId"), unlock_ch2>), reinterpret_cast<void**>(&unlock_ch2)};
   if (name == "ads.questShow")
     return {reinterpret_cast<void*>(ShowGuideWithCommittedProgress), reinterpret_cast<void**>(&original_show_guide)};
   if (name == "gameplay.upgrade.skillConstructor")
