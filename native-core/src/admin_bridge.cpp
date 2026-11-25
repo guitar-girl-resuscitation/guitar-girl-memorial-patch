@@ -10,6 +10,7 @@ namespace {
 JavaVM* java_vm = nullptr;
 jclass client_class = nullptr;
 jmethodID request_method = nullptr;
+jmethodID journal_method = nullptr;
 jmethodID page_method = nullptr;
 jmethodID message_method = nullptr;
 jmethodID dismiss_method = nullptr;
@@ -42,6 +43,8 @@ bool InitializeAdminBridge(JavaVM* vm, JNIEnv* env) {
   request_method = env->GetStaticMethodID(
       client_class, "request",
       "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;J)Ljava/lang/String;");
+  journal_method = env->GetStaticMethodID(client_class, "recordMusicEvent", "(Ljava/lang/String;)V");
+  if (!journal_method) env->ExceptionClear();
   page_method = env->GetStaticMethodID(client_class, "showPage",
       "(Ljava/lang/String;[Ljava/lang/String;Ljava/lang/String;)V");
   message_method = env->GetStaticMethodID(client_class, "showMessage",
@@ -80,6 +83,13 @@ void WithPanelEnvironment(Operation operation) {
     env->PopLocalFrame(nullptr);
   }
   if (attached) java_vm->DetachCurrentThread();
+}
+
+void RecordMusicEvent(const char* message) {
+  WithPanelEnvironment([&](JNIEnv* env) {
+    if (journal_method)
+      env->CallStaticVoidMethod(client_class, journal_method, env->NewStringUTF(message));
+  });
 }
 
 void ShowMemorialPage(std::string_view title, const std::array<std::string, 4>& labels,

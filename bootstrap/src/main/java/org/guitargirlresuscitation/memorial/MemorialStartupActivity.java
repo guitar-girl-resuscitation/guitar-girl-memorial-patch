@@ -85,10 +85,10 @@ public final class MemorialStartupActivity extends Activity {
         configureWindow();
         words = Words.forLocale(Locale.getDefault());
         previousReport = getSharedPreferences("ggfm_diagnostics", MODE_PRIVATE).getString("last_report", "");
+        previousReport = RuntimeJournal.history(this, previousReport);
         String lastCrash = getSharedPreferences("ggfm_diagnostics", MODE_PRIVATE).getString("fatal_java", "");
         if (!lastCrash.isEmpty()) {
             previousReport += "\n" + lastCrash;
-            getSharedPreferences("ggfm_diagnostics", MODE_PRIVATE).edit().remove("fatal_java").apply();
         }
         setContentView(buildView());
         append("bootstrap: diagnostic gate ready; waiting for Start");
@@ -359,6 +359,8 @@ public final class MemorialStartupActivity extends Activity {
             appendTerminal("[WARN] bootstrap: startup already running");
             return;
         }
+        RuntimeJournal.start(visibleLog.toString());
+        getSharedPreferences("ggfm_diagnostics", MODE_PRIVATE).edit().remove("fatal_java").apply();
         logEpochMillis = System.currentTimeMillis();
         startButton.setEnabled(false);
         fastStartSwitch.setEnabled(false);
@@ -692,10 +694,7 @@ public final class MemorialStartupActivity extends Activity {
                 if (trim > 0) visibleLog.delete(0, trim + 1);
             }
             logView.setText(visibleLog);
-            // Bounded app-private snapshot; retain the last startup without
-            // requesting filesystem permission or collecting device logcat.
-            getSharedPreferences("ggfm_diagnostics", MODE_PRIVATE).edit()
-                    .putString("last_report", visibleLog.toString()).apply();
+            RuntimeJournal.startupLine(timestamp + line);
             logScroll.post(() -> logScroll.fullScroll(View.FOCUS_DOWN));
         });
     }
@@ -710,7 +709,7 @@ public final class MemorialStartupActivity extends Activity {
     }
 
     private void exportDiagnostics(boolean previous) {
-        pendingReport = previous ? previousReport : visibleLog.toString();
+        pendingReport = previous ? previousReport : visibleLog.toString() + "\n" + RuntimeJournal.current();
         if (pendingReport.isEmpty()) {
             android.widget.Toast.makeText(this, DiagnosticText.get(2), android.widget.Toast.LENGTH_LONG).show();
             return;

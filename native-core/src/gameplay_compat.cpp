@@ -10,6 +10,8 @@
 #include <array>
 #include <chrono>
 #include <cstring>
+#include <cstdio>
+#include <map>
 #include <android/log.h>
 
 namespace ggfm {
@@ -74,23 +76,78 @@ using MusicUnlock = void (*)(void*, const void*);
 MusicLevel music_level = nullptr;
 MusicUnlock unlock_ch1 = nullptr;
 MusicUnlock unlock_ch2 = nullptr;
+MusicUnlock label_ch1 = nullptr;
+MusicUnlock label_ch2 = nullptr;
+
+void* UserMusicTable() {
+  void* table = get_table(nullptr);
+  void* music = nullptr;
+  if (table) std::memcpy(&music, static_cast<char*>(table) + Field("table.music"), sizeof(music));
+  return music;
+}
+
+using LevelUpMusic = bool (*)(void*, int, int, bool, bool, const void*);
+// The song list recycles slots. Keep addresses out of exported diagnostics
+// and record changes only, even when the game repaints the same slot.
+template<auto SlotId, MusicUnlock& Paint>
+void TraceMusicLabel(void* slot, const void* method) {
+  Paint(slot, method);
+  auto* music = UserMusicTable();
+  if (!slot || !music) return;
+  int id = 0;
+  std::memcpy(&id, static_cast<char*>(slot) + SlotId, sizeof(id));
+  if (id <= 0) return;
+  const int level = music_level(music, id, nullptr);
+  struct Display { unsigned index; int id; int level; };
+  static thread_local std::map<void*, Display> slots;
+  if (slots.size() >= 128 && !slots.contains(slot)) slots.clear();
+  auto [it, added] = slots.try_emplace(slot, Display{static_cast<unsigned>(slots.size()), id, level});
+  if (!added && it->second.id == id && it->second.level == level) return;
+  it->second.id = id;
+  it->second.level = level;
+  char line[112];
+  std::snprintf(line, sizeof(line), "music.row chapter=%d slot=%u id=%d level=%d",
+                SlotId == Field("music.ch1SlotId") ? 1 : 2, it->second.index, id, level);
+  RecordMusicEvent(line);
+}
+
+LevelUpMusic level_up_music = nullptr;
+
+bool TraceLevelUpMusic(void* core, int id, int delta, bool reward, bool skip_save, const void* method) {
+  void* music = UserMusicTable();
+  const int before = music ? music_level(music, id, nullptr) : -1;
+  char line[144];
+  std::snprintf(line, sizeof(line), "music.level.begin id=%d path=%s before=%d delta=%d",
+                id, reward ? "reward" : "purchase", before, delta);
+  RecordMusicEvent(line);
+  const bool ok = level_up_music(core, id, delta, reward, skip_save, method);
+  music = UserMusicTable();
+  std::snprintf(line, sizeof(line), "music.level id=%d path=%s before=%d delta=%d after=%d ok=%d",
+                id, reward ? "reward" : "purchase", before, delta, music ? music_level(music, id, nullptr) : -1, ok);
+  RecordMusicEvent(line);
+  return ok;
+}
 
 // Both stock unlock buttons call the same additive API as the +1 button.
 // Re-check ownership here in case the old button fires again before rebinding.
 template<auto SlotId, MusicUnlock& Unlock>
 void UnlockNewSong(void* slot, const void* method) {
   static_assert(SlotId && Field("table.music"));
-  void* table = get_table(nullptr);
-  void* music = nullptr;
-  if (table) std::memcpy(&music, static_cast<char*>(table) + Field("table.music"), sizeof(music));
+  void* music = UserMusicTable();
   if (!slot || !music) return;
   int id = 0;
   std::memcpy(&id, static_cast<char*>(slot) + SlotId, sizeof(id));
   if (id <= 0) return;
   const int before = music_level(music, id, nullptr);
+  char line[96];
+  std::snprintf(line, sizeof(line), "music.unlock chapter=%d id=%d before=%d accepted=%d",
+                SlotId == Field("music.ch1SlotId") ? 1 : 2, id, before, before == 0);
+  RecordMusicEvent(line);
   if (before == 0) Unlock(slot, method);
-  __android_log_print(ANDROID_LOG_INFO, "GGFM", "music: unlock id=%d level=%d -> %d",
-                      id, before, music_level(music, id, nullptr));
+  const int after = music_level(music, id, nullptr);
+  std::snprintf(line, sizeof(line), "music.unlock.end id=%d before=%d after=%d", id, before, after);
+  RecordMusicEvent(line);
+  __android_log_print(ANDROID_LOG_INFO, "GGFM", "music: unlock id=%d level=%d -> %d", id, before, after);
 }
 using BuyApClick = void (*)(void*, const void*);
 BuyApClick original_buy_ap_click = nullptr;
@@ -161,8 +218,35 @@ bool LoadBoundContent(LoadMusic load, std::string_view domain, std::uintptr_t ow
 }
 
 bool MusicLoad(void* instance, void* list, bool refresh, const void* method) {
-  return LoadBoundContent(original_load_music, "music", Field("table.music"),
-                          instance, list, refresh, method);
+  const bool loaded = LoadBoundContent(original_load_music, "music", Field("table.music"),
+                                       instance, list, refresh, method);
+  if (loaded && instance && list) {
+    // List<UserMusic> and the incoming DTO. Read just id and level, not player identifiers.
+    constexpr size_t p = sizeof(void*);
+    void** array = nullptr;
+    int count = 0;
+    std::memcpy(&array, static_cast<char*>(list) + 2*p, p);
+    std::memcpy(&count, static_cast<char*>(list) + 3*p, sizeof(count));
+    for (int i = 0; array && i < count && i < 64; ++i) {
+      auto* dto = static_cast<char*>(array[4+i]);
+      if (!dto) continue;
+      int64_t id = 0, level = 0;
+      std::memcpy(&id, dto + 2*p, sizeof(id));
+      std::memcpy(&level, dto + 2*p + sizeof(id), sizeof(level));
+      if (id <= 0 || id > INT32_MAX) continue;
+      const int actual = music_level(instance, static_cast<int>(id), nullptr);
+      static thread_local std::map<int64_t, std::pair<int64_t,int>> reported;
+      const auto state = std::make_pair(level, actual);
+      const auto prior = reported.find(id);
+      if (prior != reported.end() && prior->second == state) continue;
+      reported[id] = state;
+      char line[96];
+      std::snprintf(line, sizeof(line), "music.load id=%d server=%lld client=%d",
+                    static_cast<int>(id), static_cast<long long>(level), actual);
+      RecordMusicEvent(line);
+    }
+  }
+  return loaded;
 }
 
 bool CostumeLoad(void* instance, void* list, bool refresh, const void* method) {
@@ -276,6 +360,12 @@ bool InitializeGameplayCompatibility(const std::uintptr_t il2cpp_base) {
 }
 
 HookBinding ResolveGameplayCompatibilityHook(std::string_view name) {
+  if (name == "gameplay.music.labelCh1")
+    return {reinterpret_cast<void*>(TraceMusicLabel<Field("music.ch1SlotId"), label_ch1>), reinterpret_cast<void**>(&label_ch1)};
+  if (name == "gameplay.music.labelCh2")
+    return {reinterpret_cast<void*>(TraceMusicLabel<Field("music.ch2SlotId"), label_ch2>), reinterpret_cast<void**>(&label_ch2)};
+  if (name == "gameplay.music.levelUp")
+    return {reinterpret_cast<void*>(TraceLevelUpMusic), reinterpret_cast<void**>(&level_up_music)};
   if (name == "gameplay.music.unlockCh1")
     return {reinterpret_cast<void*>(UnlockNewSong<Field("music.ch1SlotId"), unlock_ch1>), reinterpret_cast<void**>(&unlock_ch1)};
   if (name == "gameplay.music.unlockCh2")

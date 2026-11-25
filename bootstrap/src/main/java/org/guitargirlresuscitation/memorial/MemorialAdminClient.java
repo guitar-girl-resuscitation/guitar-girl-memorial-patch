@@ -10,6 +10,7 @@ import org.json.JSONObject;
 
 /** Package-private loopback transport used by the in-game NGUI memorial menu. */
 final class MemorialAdminClient {
+    static void recordMusicEvent(String message) { RuntimeJournal.event(message); }
     static void showPage(String title, String[] labels, String close) {
         MemorialPanel.show(title, labels, close);
     }

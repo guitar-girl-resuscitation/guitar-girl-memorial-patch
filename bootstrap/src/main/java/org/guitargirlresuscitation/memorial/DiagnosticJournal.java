@@ -16,6 +16,7 @@ final class DiagnosticJournal {
                 String report = "[ERROR] uncaught Java failure; thread=" + thread.getName()
                         + "\n" + Log.getStackTraceString(failure);
                 if (report.length() > 12000) report = report.substring(0, 12000) + "\n[truncated]";
+                RuntimeJournal.startupLine(report);
                 // Synchronous only on fatal error, before the platform kills us.
                 app.getSharedPreferences("ggfm_diagnostics", Context.MODE_PRIVATE).edit()
                         .putString("fatal_java", report).commit();

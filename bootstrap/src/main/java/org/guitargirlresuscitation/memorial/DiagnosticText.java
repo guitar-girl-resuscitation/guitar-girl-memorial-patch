@@ -11,18 +11,18 @@ final class DiagnosticText {
             case "zh":
                 boolean traditional = "Hant".equals(Locale.getDefault().getScript())
                         || "TW".equals(Locale.getDefault().getCountry()) || "HK".equals(Locale.getDefault().getCountry());
-                text = traditional ? new String[]{"匯出本次診斷","匯出上次診斷","尚無診斷紀錄","診斷已匯出"}
-                        : new String[]{"导出本次诊断","导出上次诊断","暂无诊断记录","诊断已导出"}; break;
-            case "ja": text = new String[]{"今回の診断を保存","前回の診断を保存","診断記録はありません","診断を保存しました"}; break;
-            case "ko": text = new String[]{"현재 진단 내보내기","이전 진단 내보내기","진단 기록 없음","진단을 내보냈습니다"}; break;
-            case "vi": text = new String[]{"Xuất chẩn đoán hiện tại","Xuất chẩn đoán trước","Chưa có chẩn đoán","Đã xuất chẩn đoán"}; break;
-            case "es": text = new String[]{"Exportar diagnóstico actual","Exportar diagnóstico anterior","No hay diagnóstico","Diagnóstico exportado"}; break;
-            case "it": text = new String[]{"Esporta diagnosi attuale","Esporta diagnosi precedente","Nessuna diagnosi","Diagnosi esportata"}; break;
-            case "id": case "in": text = new String[]{"Ekspor diagnosis saat ini","Ekspor diagnosis sebelumnya","Belum ada diagnosis","Diagnosis diekspor"}; break;
-            case "th": text = new String[]{"ส่งออกการวินิจฉัยครั้งนี้","ส่งออกการวินิจฉัยครั้งก่อน","ไม่มีข้อมูลวินิจฉัย","ส่งออกแล้ว"}; break;
-            case "pt": text = new String[]{"Exportar diagnóstico atual","Exportar diagnóstico anterior","Sem diagnóstico","Diagnóstico exportado"}; break;
-            case "hi": text = new String[]{"वर्तमान निदान निर्यात करें","पिछला निदान निर्यात करें","निदान उपलब्ध नहीं","निदान निर्यात किया गया"}; break;
-            default: text = new String[]{"Export current diagnostics","Export previous diagnostics","No diagnostics yet","Diagnostics exported"};
+                text = traditional ? new String[]{"匯出本次診斷","匯出最近 5 次診斷","尚無診斷紀錄","診斷已匯出"}
+                        : new String[]{"导出本次诊断","导出最近 5 次诊断","暂无诊断记录","诊断已导出"}; break;
+            case "ja": text = new String[]{"今回の診断を保存","直近5回の診断を保存","診断記録はありません","診断を保存しました"}; break;
+            case "ko": text = new String[]{"현재 진단 내보내기","최근 5회 진단 내보내기","진단 기록 없음","진단을 내보냈습니다"}; break;
+            case "vi": text = new String[]{"Xuất chẩn đoán hiện tại","Xuất chẩn đoán của 5 lần chơi trước","Chưa có chẩn đoán","Đã xuất chẩn đoán"}; break;
+            case "es": text = new String[]{"Exportar diagnóstico actual","Exportar diagnósticos de las últimas 5 sesiones","No hay diagnóstico","Diagnóstico exportado"}; break;
+            case "it": text = new String[]{"Esporta diagnosi attuale","Esporta diagnosi delle ultime 5 sessioni","Nessuna diagnosi","Diagnosi esportata"}; break;
+            case "id": case "in": text = new String[]{"Ekspor diagnosis saat ini","Ekspor diagnosis 5 sesi terakhir","Belum ada diagnosis","Diagnosis diekspor"}; break;
+            case "th": text = new String[]{"ส่งออกการวินิจฉัยครั้งนี้","ส่งออกการวินิจฉัย 5 ครั้งล่าสุด","ไม่มีข้อมูลวินิจฉัย","ส่งออกแล้ว"}; break;
+            case "pt": text = new String[]{"Exportar diagnóstico atual","Exportar diagnósticos das últimas 5 sessões","Sem diagnóstico","Diagnóstico exportado"}; break;
+            case "hi": text = new String[]{"वर्तमान निदान निर्यात करें","पिछले 5 सत्रों के निदान निर्यात करें","निदान उपलब्ध नहीं","निदान निर्यात किया गया"}; break;
+            default: text = new String[]{"Export current diagnostics","Export last 5 sessions","No diagnostics yet","Diagnostics exported"};
         }
         return text[key];
     }

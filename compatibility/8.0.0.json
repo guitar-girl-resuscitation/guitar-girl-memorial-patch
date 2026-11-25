@@ -25,6 +25,9 @@
     "label": "Guitar Girl Fan Memorial Build"
   },
   "il2cppHooks": [
+    {"name":"gameplay.music.labelCh1","rva":"0x1F9B53C","prologue":"FF0301D1FE5F01A9F65702A9F44F03A9"},
+    {"name":"gameplay.music.labelCh2","rva":"0x1FCE39C","prologue":"FF0301D1FE5F01A9F65702A9F44F03A9"},
+    {"name":"gameplay.music.levelUp","rva":"0x1CB2214","prologue":"FF8301D1FE0B00F9FA6702A9F85F03A9"},
     {"name":"gameplay.music.unlockCh1","rva":"0x1F9CCA4","prologue":"FE57BEA9F44F01A9551801D0B40001B0"},
     {"name":"gameplay.music.unlockCh2","rva":"0x1FCF834","prologue":"FE57BEA9F44F01A9B51601F014FF00D0"},
     {"name":"ads.stockComplete","rva":"0x1D217F0","prologue":"FE0F1EF8F44F01A9342C0190F30301AA"},
