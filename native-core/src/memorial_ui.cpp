@@ -449,7 +449,8 @@ const LocaleText& Text(void* manager) {
 void Render(std::array<std::string, 4> labels,
             const std::array<Action, 4> actions) {
   menu.actions = actions;
-  ShowMemorialPage(Text(menu.manager).menu, labels, Text(menu.manager).close);
+  const auto& text = Text(menu.manager);
+  ShowMemorialPage(text.menu, labels, text.close, menu.page == Page::Root ? text.locale : std::string_view{});
 }
 
 void ShowRoot() {

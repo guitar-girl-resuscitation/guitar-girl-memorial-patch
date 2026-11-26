@@ -20,7 +20,7 @@ public final class LauncherUpdateTest {
         check(!UpdateRules.compatibleAbis(new String[]{"x86"}, new String[]{"arm64-v8a", "armeabi-v7a"}));
         for (String locale : new String[]{"en","zh-CN","zh-TW","ja","ko","vi","es","it","id","th","pt","hi","fr"}) {
             Locale.setDefault(Locale.forLanguageTag(locale));
-            for (int key = 0; key <= LauncherText.REPOSITORIES; key++) check(!LauncherText.get(key).trim().isEmpty());
+            for (int key = 0; key <= LauncherText.SUPPORT; key++) check(!LauncherText.get(key).trim().isEmpty());
             for (int key = 0; key < 7; key++) check(!DiagnosticText.get(key).trim().isEmpty());
         }
         System.out.println("Launcher localization and update identity rules passed");

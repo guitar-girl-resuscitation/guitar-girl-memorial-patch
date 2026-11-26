@@ -52,18 +52,18 @@ final class MemorialPanel {
         return drawable;
     }
 
-    static void show(String title, String[] labels, String close) {
-        render(title, labels, close, null, null, 0);
+    static void show(String title, String[] labels, String close, String supportLocale) {
+        render(title, labels, close, null, null, 0, supportLocale);
     }
 
     static void showList(String title, String[] labels, boolean[] enabled,
                          String back, String close, long generation) {
         if (enabled.length != labels.length || generation <= 0) return;
-        render(title, labels, close, enabled, back, generation);
+        render(title, labels, close, enabled, back, generation, null);
     }
 
     private static void render(String title, String[] labels, String close,
-                               boolean[] enabled, String back, long generation) {
+                               boolean[] enabled, String back, long generation, String supportLocale) {
         Activity activity = MemorialLifecycle.gameActivity();
         if (activity == null || activity.isFinishing() || activity.isDestroyed()) return;
         activity.runOnUiThread(() -> {
@@ -123,6 +123,15 @@ final class MemorialPanel {
                 LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
                 params.bottomMargin = dp(activity, 10);
                 rows.addView(button, params);
+            }
+            if (supportLocale != null) {
+                String url = new UpdateController.InstalledBuild(activity, message -> Log.w("GGFM", message)).supportUrl();
+                if (url != null) {
+                    Button support = button(activity, LauncherText.get(LauncherText.SUPPORT,
+                            java.util.Locale.forLanguageTag(supportLocale)));
+                    support.setOnClickListener(view -> UpdateController.openLink(activity, url));
+                    rows.addView(support, new LinearLayout.LayoutParams(-1, -2));
+                }
             }
             scroll.addView(rows);
             content.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));

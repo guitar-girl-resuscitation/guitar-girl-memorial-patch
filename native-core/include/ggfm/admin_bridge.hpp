@@ -20,7 +20,7 @@ struct AdminResponse {
 bool InitializeAdminBridge(JavaVM* vm, JNIEnv* env);
 void RecordGameplayEvent(const char* message);
 void ShowMemorialPage(std::string_view title, const std::array<std::string, 4>& labels,
-                      std::string_view close);
+                      std::string_view close, std::string_view support_locale);
 void ShowMemorialMessage(std::string_view title, std::string_view body, std::string_view close);
 void ShowMemorialList(std::string_view title, const std::vector<std::string>& labels,
                       const std::vector<bool>& enabled, std::string_view back,

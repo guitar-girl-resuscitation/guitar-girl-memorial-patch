@@ -289,6 +289,9 @@ public final class MemorialStartupActivity extends Activity {
         Button website = launcherButton(LauncherText.get(LauncherText.WEBSITE), view -> updates.openWebsite());
         website.setEnabled(updates.hasSource());
         about.addView(website);
+        Button support = launcherButton(LauncherText.get(LauncherText.SUPPORT), view -> updates.openSupport());
+        support.setEnabled(updates.hasSource());
+        about.addView(support);
         about.addView(launcherLabel(LauncherText.get(LauncherText.UPDATE_NOTE), smallPad));
         Switch automatic = new Switch(this);
         automatic.setText(LauncherText.get(LauncherText.AUTO));

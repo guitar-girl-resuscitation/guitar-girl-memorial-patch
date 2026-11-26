@@ -46,7 +46,7 @@ bool InitializeAdminBridge(JavaVM* vm, JNIEnv* env) {
   journal_method = env->GetStaticMethodID(client_class, "recordGameplayEvent", "(Ljava/lang/String;)V");
   if (!journal_method) env->ExceptionClear();
   page_method = env->GetStaticMethodID(client_class, "showPage",
-      "(Ljava/lang/String;[Ljava/lang/String;Ljava/lang/String;)V");
+      "(Ljava/lang/String;[Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V");
   message_method = env->GetStaticMethodID(client_class, "showMessage",
       "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V");
   dismiss_method = env->GetStaticMethodID(client_class, "dismissPage", "()V");
@@ -93,7 +93,7 @@ void RecordGameplayEvent(const char* message) {
 }
 
 void ShowMemorialPage(std::string_view title, const std::array<std::string, 4>& labels,
-                      std::string_view close) {
+                      std::string_view close, std::string_view support_locale) {
   WithPanelEnvironment([&](JNIEnv* env) {
     auto* strings = env->FindClass("java/lang/String");
     auto* rows = env->NewObjectArray(4, strings, nullptr);
@@ -104,7 +104,8 @@ void ShowMemorialPage(std::string_view title, const std::array<std::string, 4>& 
     }
     env->CallStaticVoidMethod(client_class, page_method,
         env->NewStringUTF(std::string(title).c_str()), rows,
-        env->NewStringUTF(std::string(close).c_str()));
+        env->NewStringUTF(std::string(close).c_str()),
+        support_locale.empty() ? nullptr : env->NewStringUTF(std::string(support_locale).c_str()));
   });
 }
 

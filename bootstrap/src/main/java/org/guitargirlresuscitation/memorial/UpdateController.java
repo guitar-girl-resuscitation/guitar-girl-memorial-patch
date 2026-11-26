@@ -24,47 +24,59 @@ final class UpdateController {
     private boolean promptShown;
     private boolean promptVisible;
     private final AtomicBoolean busy = new AtomicBoolean();
-    private String origin;
-    private String signer;
-    private long installedCode;
-    private String installedName = "";
+    private final InstalledBuild build;
 
     UpdateController(Activity activity, Listener listener, java.util.function.Consumer<String> diagnostic) {
         this.activity = activity;
         this.listener = listener;
         this.diagnostic = diagnostic;
-        try {
-            PackageInfo info = activity.getPackageManager().getPackageInfo(activity.getPackageName(), PackageManager.GET_SIGNING_CERTIFICATES);
-            installedCode = info.getLongVersionCode();
-            installedName = info.versionName;
-            android.content.pm.Signature[] signatures = info.signingInfo.getApkContentsSigners();
-            if (signatures.length != 1) return;
-            StringBuilder hash = new StringBuilder();
-            for (byte b : MessageDigest.getInstance("SHA-256").digest(signatures[0].toByteArray()))
-                hash.append(String.format(Locale.ROOT, "%02X", b & 255));
-            signer = hash.toString();
-            JSONObject source;
-            try (InputStream stream = activity.getAssets().open("ggfm/update-source.json")) {
-                source = readJson(stream);
+        this.build = new InstalledBuild(activity, diagnostic);
+    }
+
+    static final class InstalledBuild {
+        private String origin;
+        private String signer;
+        private long installedCode;
+        private String installedName = "";
+
+        String supportUrl() { return origin == null ? null : origin + "/#support"; }
+
+        InstalledBuild(Activity activity, java.util.function.Consumer<String> diagnostic) {
+            try {
+                boolean modern = Build.VERSION.SDK_INT >= 28;
+                PackageInfo info = activity.getPackageManager().getPackageInfo(activity.getPackageName(),
+                        modern ? PackageManager.GET_SIGNING_CERTIFICATES : PackageManager.GET_SIGNATURES);
+                installedCode = modern ? info.getLongVersionCode() : info.versionCode;
+                installedName = info.versionName;
+                android.content.pm.Signature[] signatures = modern ? info.signingInfo.getApkContentsSigners() : info.signatures;
+                if (signatures == null || signatures.length != 1) return;
+                StringBuilder hash = new StringBuilder();
+                for (byte b : MessageDigest.getInstance("SHA-256").digest(signatures[0].toByteArray()))
+                    hash.append(String.format(Locale.ROOT, "%02X", b & 255));
+                signer = hash.toString();
+                JSONObject source;
+                try (InputStream stream = activity.getAssets().open("ggfm/update-source.json")) {
+                    source = readJson(stream);
+                }
+                if (source.getInt("schema") != 1 || !activity.getPackageName().equals(source.getString("applicationId"))
+                        || !signer.equalsIgnoreCase(source.getString("signerSha256"))
+                        || source.getLong("versionCode") != installedCode) return;
+                String candidate = source.optString("origin", "");
+                URL url = new URL(candidate);
+                if (!"https".equals(url.getProtocol()) || url.getHost().isEmpty() || url.getUserInfo() != null
+                        || !url.getPath().isEmpty() || url.getQuery() != null || url.getRef() != null) return;
+                origin = candidate;
+            } catch (Exception failure) {
+                // CLI/older packages legitimately have no update source. Never guess one.
+                diagnostic.accept("[WARN] update.source: " + failure.getClass().getSimpleName()
+                        + ": " + failure.getMessage());
             }
-            if (source.getInt("schema") != 1 || !activity.getPackageName().equals(source.getString("applicationId"))
-                    || !signer.equalsIgnoreCase(source.getString("signerSha256"))
-                    || source.getLong("versionCode") != installedCode) return;
-            String candidate = source.optString("origin", "");
-            URL url = new URL(candidate);
-            if (!"https".equals(url.getProtocol()) || url.getHost().isEmpty() || url.getUserInfo() != null
-                    || !url.getPath().isEmpty() || url.getQuery() != null || url.getRef() != null) return;
-            origin = candidate;
-        } catch (Exception failure) {
-            // CLI/older packages legitimately have no update source. Never guess one.
-            diagnostic.accept("[WARN] update.source: " + failure.getClass().getSimpleName()
-                    + ": " + failure.getMessage());
         }
     }
 
-    String description() { return installedName + " (" + installedCode + ")\n" +
-            (origin == null ? LauncherText.get(LauncherText.NO_SOURCE) : origin); }
-    boolean hasSource() { return origin != null; }
+    String description() { return build.installedName + " (" + build.installedCode + ")\n" +
+            (build.origin == null ? LauncherText.get(LauncherText.NO_SOURCE) : build.origin); }
+    boolean hasSource() { return build.origin != null; }
     boolean isPromptShowing() { return promptVisible; }
     private void deliver(String message, boolean available) {
         if (activity.isFinishing() || activity.isDestroyed()) return;
@@ -80,30 +92,33 @@ final class UpdateController {
         dialog.setOnDismissListener(d -> promptVisible = false);
         dialog.show();
     }
+    void openSupport() {
+        if (hasSource()) openLink(activity, build.supportUrl());
+    }
     void openWebsite() {
-        if (origin == null) return;
-        openLink(activity, origin);
+        if (build.origin == null) return;
+        openLink(activity, build.origin);
     }
     static void openLink(Activity activity, String url) {
         try { activity.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); }
         catch (android.content.ActivityNotFoundException ignored) { }
     }
     void check(boolean automatic) {
-        if (origin == null) { listener.result(LauncherText.get(LauncherText.NO_SOURCE), false); return; }
+        if (build.origin == null) { listener.result(LauncherText.get(LauncherText.NO_SOURCE), false); return; }
         android.content.SharedPreferences prefs = activity.getSharedPreferences("ggfm_startup_options", Activity.MODE_PRIVATE);
         long now = System.currentTimeMillis();
         // Every cold launcher check uses fresh metadata, not a day-old cached
         // availability hint which may refer to a rolled-back deployment.
         if (!busy.compareAndSet(false, true)) return;
         listener.result(LauncherText.get(LauncherText.CHECKING), false);
-        diagnostic.accept("[INFO] update.check: contacting configured HTTPS deployment; installed=" + installedCode);
+        diagnostic.accept("[INFO] update.check: contacting configured HTTPS deployment; installed=" + build.installedCode);
         // This thread never participates in the server readiness gate.
         new Thread(() -> {
             HttpsURLConnection connection = null;
             String message = LauncherText.get(LauncherText.OFFLINE);
             boolean available = false;
             try {
-                connection = (HttpsURLConnection) new URL(origin + "/api/v1/update").openConnection();
+                connection = (HttpsURLConnection) new URL(build.origin + "/api/v1/update").openConnection();
                 connection.setConnectTimeout(3000);
                 connection.setReadTimeout(3000);
                 connection.setInstanceFollowRedirects(false);
@@ -120,7 +135,7 @@ final class UpdateController {
                         : new String[offered.length()];
                 if (offered != null) for (int i = 0; i < offered.length(); i++)
                     offeredAbis[i] = offered.optString(i, "");
-                if (latest.getInt("schema") != 1 || !UpdateRules.compatible(activity.getPackageName(), signer,
+                if (latest.getInt("schema") != 1 || !UpdateRules.compatible(activity.getPackageName(), build.signer,
                         latest.getString("applicationId"), latest.getString("signerSha256"))
                         || !UpdateRules.compatibleAbis(android.os.Build.SUPPORTED_ABIS, offeredAbis)) {
                     prefs.edit().remove("update_latest_code").apply();
@@ -130,7 +145,7 @@ final class UpdateController {
                     long code = latest.getLong("versionCode");
                     if (code <= 0 || code > 2100000000L) throw new java.io.IOException("invalid version");
                     prefs.edit().putLong("update_latest_code", code).apply();
-                    available = UpdateRules.newer(installedCode, code);
+                    available = UpdateRules.newer(build.installedCode, code);
                     message = LauncherText.get(available ? LauncherText.AVAILABLE : LauncherText.CURRENT) + " (" + code + ")";
                     diagnostic.accept("[INFO] update.check: compatible remote=" + code + " newer=" + available);
                 }
