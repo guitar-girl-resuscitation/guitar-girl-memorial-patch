@@ -13,6 +13,7 @@ KEYS = (
     "previous", "next", "send", "outfit", "guitar", "music", "ch1", "ch2",
     "about", "sent", "owned", "error", "restart", "create", "remove",
     "switch_save", "active", "pending", "about_description",
+    "assist", "spend_candy", "spend_chocolate", "insufficient",
 )
 
 

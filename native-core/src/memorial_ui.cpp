@@ -55,6 +55,10 @@ struct LocaleText {
   std::string_view active;
   std::string_view pending;
   std::string_view about_description;
+  std::string_view assist;
+  std::string_view spend_candy;
+  std::string_view spend_chocolate;
+  std::string_view insufficient;
 };
 
 #include "ggfm/generated_localization.inc"
@@ -80,6 +84,11 @@ DomainAssemblies domain_assemblies = nullptr;
 AssemblyImage assembly_image = nullptr;
 ClassFromName class_from_name = nullptr;
 ClassGetMethod class_get_method = nullptr;
+const void* (*next_method)(void*, void**) = nullptr;
+const char* (*method_name)(const void*) = nullptr;
+std::uint32_t (*param_count)(const void*) = nullptr;
+const void* (*method_param)(const void*, std::uint32_t) = nullptr;
+int (*type_kind)(const void*) = nullptr;
 ClassGetType class_get_type = nullptr;
 TypeGetObject type_get_object = nullptr;
 RuntimeInvoke runtime_invoke = nullptr;
@@ -112,6 +121,7 @@ VoidInstance original_privacy = nullptr;
 
 enum class Page {
   Normal,
+  Assist,
   Root,
   More,
   LegacyArea,
@@ -128,6 +138,9 @@ enum class Page {
 
 enum class Action {
   None,
+  Assist,
+  SpendCandy,
+  SpendChocolate,
   Enter,
   Close,
   BackRoot,
@@ -456,9 +469,17 @@ void Render(std::array<std::string, 4> labels,
 void ShowRoot() {
   const auto& text = Text(menu.manager);
   menu.page = Page::Root;
-  Render({std::string(text.close), std::string(text.legacy),
+  Render({std::string(text.assist), std::string(text.legacy),
           std::string(text.currency), std::string(text.more)},
-         {Action::Close, Action::Legacy, Action::Currency, Action::More});
+         {Action::Assist, Action::Legacy, Action::Currency, Action::More});
+}
+
+void ShowAssist() {
+  const auto& text = Text(menu.manager);
+  menu.page = Page::Assist;
+  Render({std::string(text.back), std::string(text.spend_candy),
+          std::string(text.spend_chocolate), std::string(text.close)},
+         {Action::BackRoot, Action::SpendCandy, Action::SpendChocolate, Action::Close});
 }
 
 void ShowMore() {
@@ -844,9 +865,47 @@ void CloseSettings() {
   menu.page = Page::Normal;
 }
 
+void Exchange(bool spend_candy) {
+  const auto& text = Text(menu.manager);
+  void* sgt = FindClass("", "SGT");
+  void* klass = FindClass("", "DataManagerSGT");
+  void* data = sgt ? Invoke(class_get_method(sgt, "get_Data", 0), nullptr, nullptr) : nullptr;
+  const void* download = nullptr;
+  if (klass && next_method && method_name && param_count && method_param && type_kind) {
+    void* it = nullptr;
+    while (const void* method = next_method(klass, &it)) {
+      // DownloadSaveData has two three-argument overloads; only the enum
+      // overload accepts a partition number (IL2CPP_TYPE_VALUETYPE = 0x11).
+      if (std::string_view(method_name(method)) == "DownloadSaveData" && param_count(method) == 3
+          && type_kind(method_param(method, 0)) == 0x11) { download = method; break; }
+    }
+  }
+  void* quest_class = FindClass("", "GgFollowerQuestManagerSGT");
+  void* quest = sgt ? Invoke(class_get_method(sgt, "get_FollowerQuestManager", 0), nullptr, nullptr) : nullptr;
+  // Stock SpendCandyCount takes a double; SpendChochoCount takes an int.
+  // Both handlers filter by the active condition before raising its progress event.
+  const auto* spent = quest_class ? class_get_method(quest_class, spend_candy ?
+      "뀆뀌뀏뀆뀂뀆뀋뀎뀇뀇뀇" : "뀌뀌뀆뀆뀌뀊뀉뀋뀉뀐뀌", 1) : nullptr;
+  if (!data || !download || !quest || !spent) { Popup(text.assist, text.error); return; }
+  const auto result = AdminRequest("POST", spend_candy ? "/memorial/v1/exchange/candy" :
+                                                        "/memorial/v1/exchange/chocolate");
+  if (!result.ok()) { Popup(text.assist, result.status == 422 ? text.insufficient : text.error); return; }
+  double candy_spent = 50.0;
+  int chocolate_spent = 50;
+  void* event_args[] = {spend_candy ? static_cast<void*>(&candy_spent) : static_cast<void*>(&chocolate_spent)};
+  Invoke(spent, quest, event_args);
+  int partition = 2; // user_info: refresh balances through the stock response handler
+  void* args[] = {&partition, nullptr, nullptr};
+  Invoke(download, data, args);
+  Popup(text.assist, text.sent);
+}
+
 void Dispatch(const int row) {
   if (row < 0 || row >= 4) return;
   switch (menu.actions[row]) {
+    case Action::Assist: ShowAssist(); break;
+    case Action::SpendCandy: Exchange(true); break;
+    case Action::SpendChocolate: Exchange(false); break;
     case Action::Enter: ShowRoot(); break;
     case Action::Close: CloseSettings(); break;
     case Action::BackRoot: ShowRoot(); break;
@@ -1017,6 +1076,11 @@ bool InitializeMemorialUiApi(void* il2cpp_handle, const std::uintptr_t il2cpp_ba
   assembly_image = Symbol<AssemblyImage>(scope, "il2cpp_assembly_get_image");
   class_from_name = Symbol<ClassFromName>(scope, "il2cpp_class_from_name");
   class_get_method = Symbol<ClassGetMethod>(scope, "il2cpp_class_get_method_from_name");
+  next_method = Symbol<decltype(next_method)>(scope, "il2cpp_class_get_methods");
+  method_name = Symbol<decltype(method_name)>(scope, "il2cpp_method_get_name");
+  param_count = Symbol<decltype(param_count)>(scope, "il2cpp_method_get_param_count");
+  method_param = Symbol<decltype(method_param)>(scope, "il2cpp_method_get_param");
+  type_kind = Symbol<decltype(type_kind)>(scope, "il2cpp_type_get_type");
   class_get_type = Symbol<ClassGetType>(scope, "il2cpp_class_get_type");
   type_get_object = Symbol<TypeGetObject>(scope, "il2cpp_type_get_object");
   runtime_invoke = Symbol<RuntimeInvoke>(scope, "il2cpp_runtime_invoke");
